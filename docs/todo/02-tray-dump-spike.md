@@ -24,6 +24,15 @@ Steps, each one a build step:
 - Include system icons (network, volume, clock) in the dump? Suggested: yes, marked `[system]`; whether the grid shows them is decided in To do 3.
 - If the overflow flyout flickers visibly: accept it, or turn every icon on in Settings? Suggested: decide after seeing it.
 
+## Progress
+- A (done 2026-11-14): `Taskbar.ReadVisibleItems()` in src/Tray reads the primary taskbar's tray buttons (FindWindow `Shell_TrayWnd`, then the InputSite pane, then its direct children) into `TrayItem` (name, kind `Pinned`/`System`, rectangle in physical pixels). TrayDump prints them numbered, with the time of a first and a second read; on failure, a message naming the missing part and exit code 1. The owner checked the list against the tray.
+- Owner's choices: system icons in the dump as `[system]`; line format number, kind, position, size, name last; tooltip lines joined with " / ".
+- For the next steps:
+  - B: add `Overflow` to `TrayItemKind`; overflow items get their own lines.
+  - C: the icon with no name is the owner's PowerShell crash monitor (powershell.exe).
+  - D: Session Inbox's button is 613 px wide; aim a simulated click at its `Image` child, not the button's centre.
+- B (next): overflow, as in Approach.
+
 ## Test
 - Claude: runs the dump and compares it with the real taskbar (count, names).
 - User: compares the dump with the tray and the overflow flyout; tries `click` and `rclick` on 2-3 apps (e.g. OneDrive, Steam, Discord) and says where each menu appeared.

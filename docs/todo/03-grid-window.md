@@ -12,7 +12,7 @@ The actual app: a small popup grid of the tray icons on the monitor the mouse is
 - New WinForms project `src/TrayAnywhere/` that references src/Tray; per-monitor DPI aware (PerMonitorV2).
 - Grid: a borderless, topmost form with one FlowLayoutPanel per section; closes on Escape or when it loses focus.
 - Hotkey: `RegisterHotKey` (Win32). Floating button: a tiny borderless topmost form, draggable, its position saved in the settings file.
-- Refresh as decided: read everything on opening; while open, re-read the visible icons every 2 s.
+- Refresh as decided: read everything on opening; while open, re-read the visible icons every 2 s. A read can fail when an icon goes away or explorer restarts during it (UI Automation's ElementNotAvailableException, or the tray not found): keep the last list and try again at the next tick.
 - Icons: the method that worked in To do 2 (Windows' snapshot or the exe's icon), with a generic icon as the last fallback.
 - Suggested steps: A. window and hotkey with a plain text list; B. icons and sections; C. clicks; D. floating button; E. refresh.
 

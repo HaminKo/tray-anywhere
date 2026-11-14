@@ -1,5 +1,5 @@
 ## Where we are
-- Now: To do 2, step A (Spike: visible tray items)
+- Now: To do 2, step B (Spike: overflow tray items)
 - Next: To do 3, 4, 5
 - Updated: 2026-11-14
 

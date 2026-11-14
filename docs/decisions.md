@@ -2,6 +2,11 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-14: Find the taskbar window with Win32 FindWindow, then use UI Automation
+- Reason: asking UI Automation to search the desktop's top-level windows for `Shell_TrayWnd` took 97 to 371 ms per read (35 windows open); `FindWindow` + `AutomationElement.FromHandle` took 1 to 5 ms (measured, details in docs/research/uia-tray.md "Spike step A"). A warm read of the tray dropped from ~130 ms to ~20 to 30 ms, which matters for the 2 s refresh. Win32 P/Invoke is allowed by the no-third-party rule.
+- Decided by: Claude during To do 2, step A, from the measurement; the owner can overrule.
+- Rejected: UI Automation only (`RootElement.FindFirst`): one fewer concept to read, but 4 to 10 times slower per read.
+
 ## 2026-11-14: One solution; the tray code in its own library
 - Reason: the dump tool (To do 2) and the app (To do 3) both need the tray-reading code; a class library is the standard way to share it, and it keeps the code a Windows update may break in one place. One TrayAnywhere.slnx at the root, so a plain `dotnet build` builds everything; shared settings (net10.0-windows, nullable on, warnings as errors) in Directory.Build.props.
 - Decided by: the owner (Claude's suggestion).

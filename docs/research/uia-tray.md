@@ -23,8 +23,8 @@ All are XAML (`FrameworkId = XAML`) and support only `Invoke` and `ScrollItem`.
 - The `Name` is the tooltip text, often several lines, e.g. "OneDrive - Personal\nBacked up and synced". One app icon had an empty name.
 - Every element reports the same `ProcessId`: explorer's. So UI Automation does not say which app owns an icon.
 - Only `Invoke` (a left click) is offered: no pattern for a right click.
-- Odd: the Session Inbox icon's rectangle was 613 px wide (others 48). Not explained yet; check in the spike.
-- Time: ~0.5 s for the whole primary taskbar (all buttons, task list included), measured once with a Stopwatch in PowerShell. A search limited to the tray should be faster (not measured).
+- Odd: the Session Inbox icon's rectangle was 613 px wide (others 48). Still not explained after spike step A; details there.
+- Time: ~0.5 s for the whole primary taskbar (all buttons, task list included), measured once with a Stopwatch in PowerShell. A search limited to the tray is faster: measured in spike step A below.
 
 ### Coordinates (measured numbers, interpretation inferred)
 In the same PowerShell process, UI Automation gave the primary taskbar as `0,1528,2560,72`, while WinForms `Screen.AllScreens` gave the primary screen as 1707x1067. So UI Automation returned physical pixels and WinForms returned values scaled by 150 %. The app must be per-monitor DPI aware and use one kind of coordinates throughout.
@@ -45,10 +45,33 @@ In the same PowerShell process, UI Automation gave the primary taskbar as `0,152
 - `AutomationElement.RootElement.Current.Name` is an empty string on this PC, so it is no use as a check. Finding `Shell_TrayWnd` among the root's children works from the .NET 10 console.
 - Not tried: `<FrameworkReference Include="Microsoft.WindowsDesktop.App" />` (the whole framework, both profiles).
 
+## 2026-11-14: Spike step A: the visible tray items (build 26300.9711)
+Method: read-only PowerShell probes (a tree dump that skips the task list, the same read with and without DPI awareness, the read split into timed phases), then TrayDump (C#, .NET 10) on the live taskbar.
+
+### Where the tray buttons are (measured)
+- Path: `Shell_TrayWnd` → child pane with class `Windows.UI.Input.InputSite.WindowClass` → the tray buttons are that pane's **direct children**, left to right. Read with `FindAll(TreeScope.Children, AutomationId = NotifyItemIcon or SystemTrayIcon)`. Used in src/Tray/Taskbar.cs.
+- The same pane also holds `TaskbarFrame` (class `Taskbar.TaskbarFrameAutomationPeer`): Widgets, Start, Search, Task View and the task list buttons. Searching only the pane's direct children never walks into it.
+- Other children of `Shell_TrayWnd`: `TrayNotifyWnd` (the old Win32 tray window, covering the tray area, no UI Automation children) and `ReBarWindow32` → `MSTaskSwWClass` "Running applications". Neither holds tray buttons.
+- 12 buttons here: 3 `NotifyItemIcon` (Session Inbox, one with an empty name, OneDrive) and 9 `SystemTrayIcon` (Show Hidden Icons, two input indicators, Network, Volume, Power, Clock, Notifications, Show Desktop). The tray shows these 12 in the same order (compared with the probe's output, not yet by the owner).
+- App buttons have a 24x24 `Image` child: the icon itself.
+- Session Inbox, still odd: the button is 613 px wide (x 1947 to the screen's right edge, 2560), but its first `Image` child is a normal 24x24 at 1959,1552; a second `Image` (`MainVisual`) reports an empty rectangle (infinite values). Cause unknown. It matters for a simulated click at the button's centre (step D): that point lands on the Volume button. The `Image` child's rectangle is the better target.
+- Names: the tooltip text. Lines are separated by `\r` and/or `\n`. The clock's date holds invisible format characters (Unicode category Cf; they print as "?" in PowerShell and vanish when TrayDump drops Cf characters; probably left-to-right marks, inferred). The Session Inbox name changes while it runs (it is that tool's own tooltip).
+
+### Coordinates and DPI (measured)
+- The same rectangles with and without `SetProcessDpiAwarenessContext(PerMonitorV2)` (PowerShell probe): the XAML tray buttons report physical pixels either way. So TrayDump needs no DPI manifest. The app (To do 3) still needs to be per-monitor aware for its own window and screen coordinates (see "Coordinates" above).
+- The InputSite pane itself reports `0,1528,1706,48` in both modes: width and height scaled by 150 %, the position not. Not used.
+
+### Time (measured)
+- Phases, PowerShell, 4 runs, the later 3 warm: finding `Shell_TrayWnd` with UI Automation among the desktop's 35 top-level windows (`RootElement.FindFirst(Children, ClassName)`) 97 to 371 ms; Win32 `FindWindow` + `AutomationElement.FromHandle` 1 to 5 ms; finding the pane 7 to 9 ms; `FindAll` of the buttons 11 to 13 ms; reading Name, AutomationId and BoundingRectangle of 12 buttons 10 to 12 ms.
+- TrayDump with the UI Automation desktop search: first read 248 to 308 ms, second read 125 to 148 ms (3 runs).
+- TrayDump with `FindWindow` (the code now): first read 106 to 136 ms (includes loading UI Automation), second read 16 to 29 ms in 3 of 4 runs; one 246 ms, not explained. So the planned 2 s refresh of the visible icons costs about 20 to 30 ms.
+- Result: src/Tray/Taskbar.cs finds `Shell_TrayWnd` with `FindWindow` (Win32 P/Invoke) and uses UI Automation from there.
+
 ## Open questions for the spike (To do 2)
 - Overflow: which window holds it while open (probably `TopLevelWindowForOverflowXamlIsland`, unchecked), does it keep its items while closed, and how visible is opening and closing it?
 - Right click: does `IUIAutomationElement3::ShowContextMenu` (COM UI Automation; not in the .NET System.Windows.Automation wrapper) open the app's menu? Otherwise a simulated right-click on the real icon.
-- Owner exe: can tray items be matched to NotifyIconSettings entries reliably?
+- Owner exe: can tray items be matched to NotifyIconSettings entries reliably? Known answer to test step C against: the icon with the empty name is the owner's crash-monitor script, a .bat that runs a PowerShell script in `powershell.exe` (owner, 2026-11-14; path in docs/local.md). That fits the `IsPromoted = 1` entry for powershell.exe.
+- Session Inbox's 613 px rectangle (step A): why, and does it matter for clicks?
 
 ## Sources
 - UI Automation for Win32: https://learn.microsoft.com/en-us/windows/win32/winauto/entry-uiauto-win32
