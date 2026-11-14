@@ -9,11 +9,14 @@ using Tray;
 // TrayDump: prints the tray icons that src/Tray reads from the live taskbar and from
 // the overflow, one per line, with the program behind each app icon and how long the
 // reading took. "TrayDump pictures" also saves each icon's picture as a PNG file.
+// "TrayDump click N" and "TrayDump rclick N" then left- or right-click icon N of the list.
 
 var savePictures = args.Length == 1 && args[0] == "pictures";
-if (args.Length > 0 && !savePictures)
+var clickNumber = 0;
+var click = args.Length == 2 && args[0] is ("click" or "rclick") && int.TryParse(args[1], out clickNumber);
+if (args.Length > 0 && !savePictures && !click)
 {
-    Console.WriteLine("Usage: TrayDump [pictures]");
+    Console.WriteLine("Usage: TrayDump [pictures | click N | rclick N]");
     return 2;
 }
 
@@ -105,7 +108,40 @@ if (ownersError != null)
 {
     Console.WriteLine("Programs not found: " + ownersError);
 }
-return overflowError != null || ownersError != null ? 1 : 0;
+var clickFailed = click && !Click(items, clickNumber, right: args[0] == "rclick");
+return overflowError != null || ownersError != null || clickFailed ? 1 : 0;
+
+// Left- or right-clicks icon `number` of the printed list and says what it did.
+// Returns false if it couldn't.
+static bool Click(List<TrayItem> items, int number, bool right)
+{
+    if (number < 1 || number > items.Count)
+    {
+        Console.WriteLine($"No icon {number}: the list has 1 to {items.Count}.");
+        return false;
+    }
+    var item = items[number - 1];
+    var clock = Stopwatch.StartNew();
+    try
+    {
+        if (right)
+        {
+            TrayClicks.RightClick(item);
+        }
+        else
+        {
+            TrayClicks.LeftClick(item);
+        }
+    }
+    catch (InvalidOperationException e)
+    {
+        Console.WriteLine(e.Message);
+        return false;
+    }
+    var which = right ? "Right" : "Left";
+    Console.WriteLine($"{which} click sent to {number} ({OneLine(item.Name)}) in {clock.ElapsedMilliseconds} ms.");
+    return true;
+}
 
 // The program behind an app icon and how it was found, e.g. "steam.exe (name)";
 // "?" if not found. Empty for Windows' own buttons.

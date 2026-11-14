@@ -5,7 +5,7 @@ Windows 11 shows tray icons (next to the clock, and the hidden ones behind the a
 It uses only what comes with Windows and .NET: no extra libraries.
 
 ## Status
-Early. The first step is a console test that lists the tray icons it can find.
+Early. A console test lists the tray icons it can find and can click them; the popup comes next.
 
 ## Build and run
 You need the .NET 10 SDK:
@@ -20,7 +20,7 @@ Then, in the project folder:
 dotnet run --project src/TrayDump
 ```
 
-For now this lists the tray icons on the main taskbar, including the hidden ones behind the arrow, and the program behind each one. Add `-- pictures` to also save each icon's picture to a temp folder. The popup comes with the first working version.
+For now this lists the tray icons on the main taskbar, including the hidden ones behind the arrow, and the program behind each one. Add `-- pictures` to also save each icon's picture to a temp folder, or `-- click 5` / `-- rclick 5` to left- or right-click icon 5 of the list. The popup comes with the first working version.
 
 ## Known limitations
 - Some apps open their right-click menu next to the real tray on the main monitor, not at the mouse. tray-anywhere can't change that.

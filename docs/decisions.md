@@ -2,6 +2,12 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-14: Clicks act on the tray button: Invoke for a left click, COM UI Automation's ShowContextMenu for a right click
+- Reason: both work on the button itself, so the mouse doesn't move and overflow icons are clicked while the flyout stays closed. Measured with OneDrive, Steam and Discord: Invoke opened Discord's window, ShowContextMenu opened Discord's menu, both on a hidden overflow icon (docs/research/uia-tray.md "Spike step D"). ShowContextMenu isn't in .NET's UI Automation library, so src/Tray/TrayClicks.cs declares the few COM UI Automation methods it needs by hand and calls ShowContextMenu by its place in the interface's method table (about 60 lines of code).
+- Decided by: Claude from the probes, following the owner's go-ahead for the to-do's plan (ShowContextMenu first, a simulated click only if it failed).
+- Rejected: a simulated right-click on the real icon (moves the mouse to the main monitor and back, needs the icon on screen so the overflow flyout would have to open for every click, and the click lands in a full-screen window that covers the taskbar); opening the flyout for overflow clicks (not needed: hidden buttons take both clicks).
+- Where the app's menu or window appears is the app's choice: at the mouse for Steam and Discord, above its icon on the main taskbar for OneDrive.
+
 ## 2026-11-14: Icon pictures: drawn live for taskbar icons; Windows' stored snapshot, matched by name then order, for overflow icons
 - Reason: nothing links a tray icon to its program (Windows' undocumented ITrayNotify, UI Automation and the old Win32 tray all failed, measured). Windows' list of tray icons (NotifyIconSettings) has each program, a snapshot picture and an order that matched the overflow 12 of 12. Matching by name first, then by order for the icons in between, found 13 of 14 app icons, none wrong (measured once; docs/research/uia-tray.md "Spike step C"). Taskbar icons are drawn from the taskbar itself with PrintWindow: the live picture, also under a full-screen window. That fixes two icons that share one entry (two PowerShell scripts) and shows status changes, for about 50 to 75 ms more per read.
 - Decided by: the owner (Claude's suggestions), To do 2 step C.

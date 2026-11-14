@@ -1,4 +1,6 @@
+using System;
 using System.Drawing;
+using System.Windows.Automation;
 
 namespace Tray;
 
@@ -41,4 +43,20 @@ public sealed record TrayItem(
     Rectangle Bounds,
     string? ExePath = null,
     OwnerFoundBy OwnerFoundBy = OwnerFoundBy.None,
-    byte[]? Picture = null);
+    byte[]? Picture = null)
+{
+    // The tray button this item was read from, so TrayClicks clicks exactly that button
+    // (names can be empty or repeat). Internal: code outside src/Tray never sees
+    // UI Automation types.
+    internal TrayButton? Button { get; init; }
+}
+
+// Where Taskbar read an item: the UI Automation button, and the window of the pane that
+// holds it (TrayClicks finds the button again there through COM UI Automation).
+// A class, not a record: comparing two TrayItems compares this as one object and never
+// calls into Explorer, as comparing two AutomationElements would.
+internal sealed class TrayButton(AutomationElement element, IntPtr paneWindow)
+{
+    public AutomationElement Element { get; } = element;
+    public IntPtr PaneWindow { get; } = paneWindow;
+}

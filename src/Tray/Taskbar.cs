@@ -134,6 +134,8 @@ public static class Taskbar
         var isAppIcon = new PropertyCondition(AutomationElement.AutomationIdProperty, AppIconId);
         var isSystemIcon = new PropertyCondition(AutomationElement.AutomationIdProperty, SystemIconId);
         var buttons = pane.FindAll(TreeScope.Children, new OrCondition(isAppIcon, isSystemIcon));
+        // The pane is a window of its own (TrayPaneClass), on the taskbar and in the overflow.
+        var paneWindow = new IntPtr(pane.Current.NativeWindowHandle);
 
         var items = new List<TrayItem>();
         foreach (AutomationElement button in buttons)
@@ -143,7 +145,10 @@ public static class Taskbar
             var picture = kind != TrayItemKind.System && windowPicture != null
                 ? CutOutIcon(button, windowPicture, windowBounds)
                 : null;
-            items.Add(new TrayItem(info.Name, kind, ToRectangle(info.BoundingRectangle), Picture: picture));
+            items.Add(new TrayItem(info.Name, kind, ToRectangle(info.BoundingRectangle), Picture: picture)
+            {
+                Button = new TrayButton(button, paneWindow),
+            });
         }
         return items;
     }

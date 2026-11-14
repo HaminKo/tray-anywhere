@@ -27,7 +27,7 @@ Don't build what's under "Later" in docs/todo.md until asked.
   - Once per step: `dotnet format --verify-no-changes`, ~11 s; and, from To do 2 on, the tray dump on the live taskbar: `dotnet run --project src/TrayDump`.
   - GUI test and screenshots: added by To do 4.
 - Docs to update when behaviour changes: README.md (headline features, build and run, autostart, known limitations, Credits) and the docs/ pages it links to; docs/research/uia-tray.md when the taskbar's UI Automation tree or the reading code changes.
-- Must keep working: `dotnet run --project src/TrayDump` lists every icon on the primary taskbar's tray and in the overflow, with each app icon's program (exit code 0; 1 if a read fails).
+- Must keep working: `dotnet run --project src/TrayDump` lists every icon on the primary taskbar's tray and in the overflow, with each app icon's program (exit code 0; 1 if a read fails); `-- click N` / `-- rclick N` then left- or right-click icon N, overflow icons included, without opening the flyout.
 - Review checklist: none yet: the built-in code-review skill.
 
 ## Status
@@ -38,9 +38,10 @@ Reasons, who decided and what was rejected: docs/decisions.md.
 - C# on .NET 10 with WinForms; no NuGet packages.
 - The grid opens with a global hotkey and with a small floating button, on the monitor the mouse is on.
 - Refresh: read everything when the grid opens; while it is open, re-read all icons every 2 s. The overflow is read from its hidden window; the flyout is opened only once, when Explorer hasn't created that window yet, never by the 2 s refresh.
+- Clicks act on the tray button itself (Invoke; ShowContextMenu through COM UI Automation), not a simulated mouse click; overflow icons without opening the flyout.
 - Settings in `$env:APPDATA\tray-anywhere\settings.json`; autostart via the per-user Run registry key.
 - Checks: `dotnet build` (warnings as errors) and `dotnet format`; no unit tests at first.
-- Layout: src/Tray holds only the tray-reading code and is the only project that uses UI Automation (`<UseWPF>`); src/TrayDump is the console tool; src/TrayAnywhere is the app (To do 3).
+- Layout: src/Tray holds only the code that reads and clicks the tray and is the only project that uses UI Automation (`<UseWPF>`); src/TrayDump is the console tool; src/TrayAnywhere is the app (To do 3).
 - Implicit usings off; a short hand-written .editorconfig.
 
 ## Project docs

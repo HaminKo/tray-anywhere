@@ -158,11 +158,41 @@ Method: read-only PowerShell probes (registry, processes, COM, PrintWindow), com
 - Time, warm, release build, about 36 % CPU load from other programs: `ReadVisibleItems` 77 to 104 ms with the pictures (5 runs; it was 16 to 29 ms without them), of which `PrintWindow` alone was 24 to 58 ms. Overflow 15 to 28 ms. `IconOwners.Find` 43 to 51 ms (registry 1 to 2 ms; the rest is the processes and the exes' version info). So a full refresh costs about 150 ms. First runs were slower (taskbar 238 to 264 ms, owners 83 to 90 ms).
 - Known limits, not seen here (code review): a short exe name or description inside an unrelated tooltip (e.g. "Code" in "Unicode") is a false name match and shifts the order matches after it; a running program without an icon that sits before the last unnamed icon of a gap shifts the icons after it; an entry without `IsPromoted` that Windows shows on the taskbar would count as overflow (new icons went to the overflow here, measured in step B).
 
+## 2026-11-14: Spike step D: left and right clicks (build 26300.9711)
+Method: a probe (C# console on .NET 10, per-monitor DPI aware, in a temp folder) clicks one tray button, then lists the visible top-level windows that are new or changed 0.3, 1 and 2 s later, with process, class, rectangle and monitor, plus the foreground window and the mouse position. The mouse was on an external monitor (DISPLAY5 or DISPLAY6) for every click. The owner was using the PC meanwhile, so foreground changes after about 1 s may be theirs (inferred). Only OneDrive, Steam and Discord were clicked (owner's OK).
+
+### Left click: InvokePattern (measured)
+- `Invoke()` returned after 31 to 64 ms (3 clicks).
+- OneDrive (taskbar): its "Activity Center" window opened on DISPLAY1 just above the icon and became the foreground window within 1 s.
+- Discord (overflow, flyout closed, icon with no name): Discord's main window came to the front on DISPLAY6, where it was, as the foreground window.
+- Steam (overflow, flyout closed): Steam's tray menu (process steamwebhelper, class `SDL_app`, title "Menu", 253x455) opened on DISPLAY6 at the mouse. A real left click on Steam's icon shows the same menu (owner's test). The menu did not get the foreground and stayed open after the probe ended; posting `WM_KEYDOWN`/`WM_KEYUP` Escape to its window closed it. 0.3 s after the click a hidden Search window (SearchHost) had the foreground, and at 2 s the overflow flyout was open with the mouse on the arrow: not explained, possibly the owner (inferred).
+- So **Invoke works on overflow buttons while the flyout is closed**: no flyout, no flash. This was untested before step D.
+
+### Right click: IUIAutomationElement3::ShowContextMenu (measured)
+- Returned S_OK after 17 to 26 ms (2 clicks).
+- Discord (overflow, flyout closed): Discord's tray menu (class `Chrome_WidgetWin_1`, 224x218, no title) opened on DISPLAY6 at the mouse and got the foreground. A left click opened the main window instead, so ShowContextMenu is a real right click here, and it works while the flyout is closed.
+- OneDrive (taskbar): the Activity Center again, the same as a left click. A real right click on OneDrive's icon does the same (owner's test).
+- Not needed, so not built: a simulated mouse click on the icon (moves the mouse, needs the icon on screen, and lands in a full-screen window that covers the taskbar), and opening the flyout for overflow clicks.
+
+### Where the menu or window appears (measured, 3 apps)
+- Up to the app: Steam and Discord put their menus at the mouse, on the external monitor; OneDrive puts its Activity Center above its icon on the primary taskbar. So in the grid most menus should open next to the mouse (inferred from 2 of 3 apps).
+
+### Calling ShowContextMenu from .NET (measured)
+- .NET's System.Windows.Automation has no right click, and UIAutomationCore.dll exports no plain function for it (its name appears only in the DLL's type information). So it takes COM UI Automation: create `CUIAutomation` (CLSID `{FF48DBA4-60EF-4201-AA87-54103EEF594E}`), get the pane with `IUIAutomation::ElementFromHandle(pane window)`, find the button among its children, ask it for `IUIAutomationElement3` (`{8471DF34-AEE0-4A01-A7DE-7DB9AF12C296}`) and call `ShowContextMenu`.
+- `ShowContextMenu` is entry 91 of the interface's method table (3 of IUnknown, 82 of IUIAutomationElement, 6 of IUIAutomationElement2, from uiautomationclient.h). The probe called it there and Discord's menu opened, which confirms the number.
+- The overflow now had 11 icons (Task Manager closed); 3 with no name (Discord, Claude, Copilot, by order).
+
+### In the code (step D)
+- `Taskbar.ReadButtons` stores each item's button and its pane's window in an internal `TrayButton` on `TrayItem`. src/Tray/TrayClicks.cs: `LeftClick` invokes the stored button; `RightClick` creates `CUIAutomation`, walks the pane's children (control view) to the one with the stored button's runtime ID, and calls `ShowContextMenu` at entry 91. Any failure becomes an InvalidOperationException.
+- TrayDump on the live tray: `rclick` on Discord (overflow) opened its menu, `rclick` on OneDrive (taskbar) and `click` on Discord ran without error; 29 to 82 ms per click, start of the COM object included. A bad number prints a message, exit 1.
+- Owner's test (2026-11-14): `click` and `rclick` on Steam, Discord and OneDrive did what a real click on each icon does, and each menu appeared where expected (Steam and Discord at the mouse on the external monitor, OneDrive above its icon).
+- Probe mistake, for later probes: pressing Escape with `keybd_event` to close a menu goes to whatever window has the focus; twice the menu had already closed and the key went to another program. Post the key to the menu's own window instead (worked for Steam's menu), or leave the menu to the owner.
+
 ## Open questions for the spike (To do 2)
 - Overflow, step B: answered in "Spike step B". The hidden list is live; it doesn't exist after an Explorer start until the flyout opens once; its order matched the open flyout (owner, 2026-11-14).
-- Right click: does `IUIAutomationElement3::ShowContextMenu` (COM UI Automation; not in the .NET System.Windows.Automation wrapper) open the app's menu? Otherwise a simulated right-click on the real icon.
+- Right click: does `IUIAutomationElement3::ShowContextMenu` (COM UI Automation; not in the .NET System.Windows.Automation wrapper) open the app's menu? Otherwise a simulated right-click on the real icon. Step D: yes, also for overflow icons while the flyout is closed (Discord's menu, measured); no simulated click needed. Details in "Spike step D".
 - Owner exe: can tray items be matched to NotifyIconSettings entries reliably? Known answer to test step C against: the icon with the empty name is the owner's crash-monitor script, a .bat that runs a PowerShell script in `powershell.exe` (owner, 2026-11-14; path in docs/local.md). That fits the `IsPromoted = 1` entry for powershell.exe. Step C: no exact link exists (every other source is a dead end), so matching is a best guess from name hints, running exes, `IsPromoted` and `UIOrderList`. It found 13 of 14 app icons, all right (measured once). Details in "Spike step C".
-- Session Inbox's 613 px rectangle (step A): why, and does it matter for clicks? In step C's dump it was 48 px wide, like the others.
+- Session Inbox's 613 px rectangle (step A): why, and does it matter for clicks? In step C's dump it was 48 px wide, like the others. Step D: clicks don't use rectangles (Invoke and ShowContextMenu act on the element), so it doesn't matter for them; still not explained.
 
 ## Sources
 - UI Automation for Win32: https://learn.microsoft.com/en-us/windows/win32/winauto/entry-uiauto-win32
