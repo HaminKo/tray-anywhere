@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Tray/Tray.csproj" />
+    <Project Path="src/TrayAnywhere/TrayAnywhere.csproj" />
     <Project Path="src/TrayDump/TrayDump.csproj" />
   </Folder>
 </Solution>

@@ -23,6 +23,17 @@ The actual app: a small popup grid of the tray icons on the monitor the mouse is
 - Show system icons (network, volume, clock)? Suggested: no; Windows already gives secondary taskbars a clock.
 - Tooltip text under each icon, or only on hover? Suggested: on hover, to keep the grid small.
 
+## Progress
+Choices (owner, 2026-11-14): docs/decisions.md "The grid app". Three steps, one chat each.
+- [x] Step A: the grid (src/TrayAnywhere, ~400 lines): one copy only, a read at start, the hotkey Alt+`, the grid with "Pinned" and "Overflow" tiles and tooltips, reads on a background thread. Owner tested it, 2026-11-14.
+  - Changed after the owner's first test: Alt+` instead of Ctrl+Alt+T (awkward); the grid stays on top until its X, Escape or Alt+` (Windows' small dark title bar), is dragged within its monitor only, and reopens where it was last dragged on that monitor (in memory until step C saves it).
+  - Why it stays on its monitor and draws its own text: docs/research/winforms-dpi.md.
+  - The owner's Session Inbox popups sit in the bottom-right corner of both external monitors, above the grid.
+  - Open notes (review): focus after a flyout flash at opening not confirmed; the tooltip shows an icon's first and current tooltip (Session Inbox); a second Alt+` during a read is ignored; Alt+` is the key left of 1 on US-style layouts only.
+  - Step B must know: `IconTile.Item` is the icon to click; tiles swallow WM_CONTEXTMENU (the background has the Exit menu); icons kept after a failed read point to old buttons, so a click on one must do nothing and refresh; TrayReader runs one read at a time. Rebuilding the tiles in an open grid is safe (no text on them; titles are drawn in OnPaint), but the grid must never change monitor.
+- [ ] Step B: clicks (the grid stays open; a gone icon does nothing and refreshes) and the 2 s refresh while open, redrawing only when something changed (~80 lines).
+- [ ] Step C: the floating buttons (one per secondary monitor, drag, saved position, click opens the grid next to it or where it was last dragged on that monitor, right-click Exit, rebuilt when monitors change) and settings.json with the button and grid positions (~200 lines).
+
 ## Test
 - Claude: build and format checks; the GUI test once To do 4 exists.
 - User: opens the grid on each external monitor with the hotkey and the button, clicks and right-clicks 3-4 icons, and checks that a newly started tray app shows up.

@@ -1,5 +1,5 @@
 ## Where we are
-- Now: To do 3 (Grid window on a secondary monitor)
+- Now: To do 3, step B (clicks and the 2 s refresh)
 - Next: To do 4, 5
 - Updated: 2026-11-14
 

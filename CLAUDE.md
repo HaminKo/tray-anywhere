@@ -27,7 +27,7 @@ Don't build what's under "Later" in docs/todo.md until asked.
   - Once per step: `dotnet format --verify-no-changes`, ~11 s; and, from To do 2 on, the tray dump on the live taskbar: `dotnet run --project src/TrayDump`.
   - GUI test and screenshots: added by To do 4.
 - Docs to update when behaviour changes: README.md (headline features, build and run, autostart, known limitations, Credits) and the docs/ pages it links to; docs/research/uia-tray.md when the taskbar's UI Automation tree or the reading code changes.
-- Must keep working: `dotnet run --project src/TrayDump` lists every icon on the primary taskbar's tray and in the overflow, with each app icon's program (exit code 0; 1 if a read fails); `-- click N` / `-- rclick N` then left- or right-click icon N, overflow icons included, without opening the flyout.
+- Must keep working: `dotnet run --project src/TrayDump` lists every icon on the primary taskbar's tray and in the overflow, with each app icon's program (exit code 0; 1 if a read fails); `-- click N` / `-- rclick N` then left- or right-click icon N, overflow icons included, without opening the flyout. `dotnet run --project src/TrayAnywhere`: Alt+` opens the grid ("Pinned", "Overflow") at the bottom right of the mouse's monitor, or where it was last dragged there, and closes it again; its X and Escape close it, a click elsewhere doesn't; right-click on its background: Exit.
 - Review checklist: none yet: the built-in code-review skill.
 
 ## Status
@@ -43,13 +43,14 @@ Reasons, who decided and what was rejected: docs/decisions.md.
 - Checks: `dotnet build` (warnings as errors) and `dotnet format`; no unit tests at first.
 - Layout: src/Tray holds only the code that reads and clicks the tray and is the only project that uses UI Automation (`<UseWPF>`); src/TrayDump is the console tool; src/TrayAnywhere is the app (To do 3).
 - Implicit usings off; a short hand-written .editorconfig.
+- Grid: Alt+`; dark; app icons only, tooltip on hover; reads the tray before it shows; stays on top until its X, Escape or Alt+`; draggable within its monitor. Floating button: one per secondary monitor.
 
 ## Project docs
 - README.md: for visitors: what it does, build and run, autostart, known limitations, credits.
 - docs/local.md: this PC's paths and copy-ready commands (gitignored).
 - docs/todo.md: the to-do list. docs/todo/: one file per to-do. docs/archive/: finished to-dos' files (read only when a to-do names one).
 - docs/decisions.md: decisions with reasons.
-- docs/research/: one file per topic; the taskbar's UI Automation tree is in uia-tray.md.
+- docs/research/: one file per topic; the taskbar's UI Automation tree is in uia-tray.md, WinForms and per-monitor scaling in winforms-dpi.md.
 
 ## Never in tracked files
 - Personal paths (the user folder, drive paths): they go in docs/local.md.

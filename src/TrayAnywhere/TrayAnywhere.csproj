@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The app: the grid window and the hotkey. It reads and clicks the tray only
+       through src/Tray. -->
+  <PropertyGroup>
+    <!-- A windowed program: no console window. -->
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Tray\Tray.csproj" />
+  </ItemGroup>
+</Project>
