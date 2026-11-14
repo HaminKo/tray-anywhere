@@ -1,0 +1,10 @@
+# Personal notes and local Claude settings
+docs/local.md
+.claude/settings.local.json
+
+# .NET build output
+bin/
+obj/
+publish/
+*.user
+.vs/
