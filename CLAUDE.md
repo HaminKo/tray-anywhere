@@ -27,7 +27,7 @@ Don't build what's under "Later" in docs/todo.md until asked.
   - Once per step: `dotnet format --verify-no-changes`, ~11 s; and, from To do 2 on, the tray dump on the live taskbar: `dotnet run --project src/TrayDump`.
   - GUI test and screenshots: added by To do 4.
 - Docs to update when behaviour changes: README.md (headline features, build and run, autostart, known limitations, Credits) and the docs/ pages it links to; docs/research/uia-tray.md when the taskbar's UI Automation tree or the reading code changes.
-- Must keep working: `dotnet run --project src/TrayDump` lists every icon on the primary taskbar's tray (exit code 0).
+- Must keep working: `dotnet run --project src/TrayDump` lists every icon on the primary taskbar's tray and in the overflow (exit code 0; 1 if either read fails).
 - Review checklist: none yet: the built-in code-review skill.
 
 ## Status
@@ -37,7 +37,7 @@ Now and next: the "Where we are" block at the top of docs/todo.md.
 Reasons, who decided and what was rejected: docs/decisions.md.
 - C# on .NET 10 with WinForms; no NuGet packages.
 - The grid opens with a global hotkey and with a small floating button, on the monitor the mouse is on.
-- Refresh: read everything when the grid opens; while it is open, re-read the visible icons every 2 s; read the overflow only on opening.
+- Refresh: read everything when the grid opens; while it is open, re-read all icons every 2 s. The overflow is read from its hidden window; the flyout is opened only once, when Explorer hasn't created that window yet, never by the 2 s refresh.
 - Settings in `$env:APPDATA\tray-anywhere\settings.json`; autostart via the per-user Run registry key.
 - Checks: `dotnet build` (warnings as errors) and `dotnet format`; no unit tests at first.
 - Layout: src/Tray holds only the tray-reading code and is the only project that uses UI Automation (`<UseWPF>`); src/TrayDump is the console tool; src/TrayAnywhere is the app (To do 3).

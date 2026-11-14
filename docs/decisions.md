@@ -2,6 +2,13 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-14: Read the overflow from its hidden window; refresh it with the visible icons every 2 s
+- Reason: the overflow flyout's window exists while closed, and its buttons can be read through UI Automation from the window handle without opening it: no flicker, 16 to 28 ms per read. Its list followed added and removed icons and tooltip changes within a fraction of a second while the flyout stayed closed (measured with a test icon; docs/research/uia-tray.md "Spike step B"). So the reason for reading the overflow only on opening (the flyout would flash) is gone. Replaces the refresh part of "Grid opens by hotkey and floating button..." below.
+- Decided by: the owner (Claude's suggestion), To do 2 step B.
+- Rejected: opening the flyout to read it (visible flicker, slower); turning every icon on in Settings so nothing is in the overflow (changes the owner's settings and loses the Pinned/Overflow split); still reading the overflow only on opening (the cost is ~20 ms per refresh, and the grid would show stale overflow icons).
+- After an Explorer start the window doesn't exist until the flyout has been opened once (owner's test, then a probe). So when it is missing, the code opens and closes the flyout once by invoking the arrow (`ReadOverflowItems(openIfMissing: true)`): a flash of about 0.2 s, and the keyboard focus moves to the taskbar (giving it back from another program failed, measured). It happens once per Explorer start (sign-in, Explorer restart). Callers that read every few seconds pass false, so a failure can't make the flyout flash every 2 s. The arrow is found by its name "Show Hidden Icons" (English Windows only): nothing else tells it apart.
+- Fallback decided by: the owner (Claude's suggestion). Rejected: telling the owner to open the arrow once after each sign-in (no flash, but a manual step every day); turning every icon on in Settings (loses the Pinned/Overflow split).
+
 ## 2026-11-14: Find the taskbar window with Win32 FindWindow, then use UI Automation
 - Reason: asking UI Automation to search the desktop's top-level windows for `Shell_TrayWnd` took 97 to 371 ms per read (35 windows open); `FindWindow` + `AutomationElement.FromHandle` took 1 to 5 ms (measured, details in docs/research/uia-tray.md "Spike step A"). A warm read of the tray dropped from ~130 ms to ~20 to 30 ms, which matters for the 2 s refresh. Win32 P/Invoke is allowed by the no-third-party rule.
 - Decided by: Claude during To do 2, step A, from the measurement; the owner can overrule.
@@ -32,6 +39,7 @@ Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what wa
 - Decided by: the owner (Claude's suggestions).
 - Rejected: polling everything every 1-2 s (flyout flicker); a fixed monitor in settings (needs a setting, and there are two external monitors).
 - Revisit after To do 2 if the overflow can't be read without visible flicker. Alternative then: turn every icon on in Settings > Personalization > Taskbar > Other system tray icons, so nothing is in the overflow.
+- Refresh part replaced (2026-11-14, To do 2 step B): the overflow can be read without opening the flyout, so it is re-read with the visible icons every 2 s. See "Read the overflow from its hidden window" above. The hotkey, button and monitor parts stand.
 
 ## 2026-11-14: C# on .NET 10 with WinForms, no NuGet packages
 - Reason: the owner's rule is "only what ships with Windows or .NET". C# on .NET 10 gives modern C#, standard tools (dotnet build, dotnet format) and good VS Code support. WinForms keeps everything in C#, no XAML. .NET 10 is the long-term-support release; .NET 8 support ended in November 2026.

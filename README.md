@@ -20,7 +20,7 @@ Then, in the project folder:
 dotnet run --project src/TrayDump
 ```
 
-For now this lists the tray icons on the main taskbar. The popup comes with the first working version.
+For now this lists the tray icons on the main taskbar, including the hidden ones behind the arrow. The popup comes with the first working version.
 
 ## Known limitations
 - Some apps open their right-click menu next to the real tray on the main monitor, not at the mouse. tray-anywhere can't change that.

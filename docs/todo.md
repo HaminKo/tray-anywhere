@@ -1,10 +1,10 @@
 ## Where we are
-- Now: To do 2, step B (Spike: overflow tray items)
+- Now: To do 2, step C (Spike: owner exe and icon picture)
 - Next: To do 3, 4, 5
 - Updated: 2026-11-14
 
 ## To do
-Next number: 6. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
+Next number: 7. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
 - To do 2: Spike: console dump of visible and overflow tray items (medium; user 2026-11-14): docs/todo/02-tray-dump-spike.md
@@ -15,7 +15,7 @@ Next number: 6. Numbers are permanent: never renumber or reuse one; to move a to
 - To do 5: Start with Windows, and the README's run and autostart steps (small; user 2026-11-14): docs/todo/05-autostart.md
 
 ### Someday
-(none yet)
+- To do 6: When no icons are hidden, read an empty overflow instead of failing (small; user 2026-11-14): docs/todo/06-no-hidden-icons.md
 
 ## Later, only if the user asks
 - Live tray icon pictures (the exact current image, e.g. a changing badge). v1 uses the exe's icon, or Windows' stored snapshot if the spike shows it works.

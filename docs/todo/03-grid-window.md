@@ -12,7 +12,7 @@ The actual app: a small popup grid of the tray icons on the monitor the mouse is
 - New WinForms project `src/TrayAnywhere/` that references src/Tray; per-monitor DPI aware (PerMonitorV2).
 - Grid: a borderless, topmost form with one FlowLayoutPanel per section; closes on Escape or when it loses focus.
 - Hotkey: `RegisterHotKey` (Win32). Floating button: a tiny borderless topmost form, draggable, its position saved in the settings file.
-- Refresh as decided: read everything on opening; while open, re-read the visible icons every 2 s. A read can fail when an icon goes away or explorer restarts during it (UI Automation's ElementNotAvailableException, or the tray not found): keep the last list and try again at the next tick.
+- Refresh as decided: read everything on opening; while open, re-read all icons (visible and overflow) every 2 s. The two reads can fail separately: a failed overflow read keeps the taskbar's icons (as TrayDump does). `ReadOverflowItems(openIfMissing: true)` at start-up and when the grid opens, `false` on the 2 s refresh. Opening the flyout blocks for ~0.15 s (up to 3 s on failure) and moves the keyboard focus to the taskbar: check that the grid still gets the focus when that happens as it opens. A read can fail when an icon goes away or explorer restarts during it (UI Automation's ElementNotAvailableException, or the tray not found): keep the last list and try again at the next tick.
 - Icons: the method that worked in To do 2 (Windows' snapshot or the exe's icon), with a generic icon as the last fallback.
 - Suggested steps: A. window and hotkey with a plain text list; B. icons and sections; C. clicks; D. floating button; E. refresh.
 
