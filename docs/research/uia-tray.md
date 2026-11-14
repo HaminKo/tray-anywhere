@@ -38,6 +38,13 @@ In the same PowerShell process, UI Automation gave the primary taskbar as `0,152
 - Undocumented: may change in a Windows update.
 - Possible use (untested): match tray items to entries to get the owning exe and a real icon picture, instead of the exe's own icon.
 
+## 2026-11-14: Referencing UI Automation from .NET 10 (measured, SDK 10.0.404)
+- `System.Windows.Automation` (UIAutomationClient.dll, UIAutomationTypes.dll) is in the `WPF` profile of the Windows Desktop framework: `FrameworkList.xml` in the SDK's `packs\Microsoft.WindowsDesktop.App.Ref\10.0.15\data`.
+- A `net10.0-windows` library with only `<UseWindowsForms>true</UseWindowsForms>`: build fails, CS0234 "The type or namespace name 'Automation' does not exist in the namespace 'System.Windows'". With `<UseWPF>true</UseWPF>`: builds. Used in src/Tray/Tray.csproj.
+- A project that only references src/Tray (TrayDump, a plain console program without UseWPF) still gets `Microsoft.WindowsDesktop.App` in its runtimeconfig and runs.
+- `AutomationElement.RootElement.Current.Name` is an empty string on this PC, so it is no use as a check. Finding `Shell_TrayWnd` among the root's children works from the .NET 10 console.
+- Not tried: `<FrameworkReference Include="Microsoft.WindowsDesktop.App" />` (the whole framework, both profiles).
+
 ## Open questions for the spike (To do 2)
 - Overflow: which window holds it while open (probably `TopLevelWindowForOverflowXamlIsland`, unchecked), does it keep its items while closed, and how visible is opening and closing it?
 - Right click: does `IUIAutomationElement3::ShowContextMenu` (COM UI Automation; not in the .NET System.Windows.Automation wrapper) open the app's menu? Otherwise a simulated right-click on the real icon.

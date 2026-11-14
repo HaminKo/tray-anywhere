@@ -14,7 +14,13 @@ You need the .NET 10 SDK:
 winget install Microsoft.DotNet.SDK.10
 ```
 
-Run instructions follow with the first working version.
+Then, in the project folder:
+
+```powershell
+dotnet run --project src/TrayDump
+```
+
+For now this only checks that the taskbar can be read. The popup comes with the first working version.
 
 ## Known limitations
 - Some apps open their right-click menu next to the real tray on the main monitor, not at the mouse. tray-anywhere can't change that.

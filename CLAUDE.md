@@ -13,7 +13,7 @@ Don't build what's under "Later" in docs/todo.md until asked.
 
 ## User and environment
 - Windows 11 (this PC: 26H2, build 26300). The laptop screen is primary; two external monitors.
-- C# on .NET 10 (LTS) with WinForms; the SDK is installed with winget (To do 1).
+- C# on .NET 10 (LTS) with WinForms; SDK 10.0.404, installed with winget.
 - Shell: PowerShell 5.1 in the VS Code terminal.
 - Real paths: docs/local.md (gitignored).
 
@@ -22,9 +22,9 @@ Don't build what's under "Later" in docs/todo.md until asked.
 - Commit after each working step; end a step with the finish-step skill.
 
 ## Build specifics
-- Checks, run from the project folder (exact project paths are set in To do 1):
+- Checks, run from the project folder (TrayAnywhere.slnx there builds every project):
   - After edits: `dotnet build` (warnings are errors), ~10 s.
-  - Once per step: `dotnet format --verify-no-changes`, ~15 s; and, from To do 2 on, the tray dump on the live taskbar.
+  - Once per step: `dotnet format --verify-no-changes`, ~11 s; and, from To do 2 on, the tray dump on the live taskbar: `dotnet run --project src/TrayDump`.
   - GUI test and screenshots: added by To do 4.
 - Docs to update when behaviour changes: README.md (headline features, build and run, autostart, known limitations, Credits) and the docs/ pages it links to; docs/research/uia-tray.md when the taskbar's UI Automation tree or the reading code changes.
 - Must keep working: (empty at first)
@@ -40,6 +40,8 @@ Reasons, who decided and what was rejected: docs/decisions.md.
 - Refresh: read everything when the grid opens; while it is open, re-read the visible icons every 2 s; read the overflow only on opening.
 - Settings in `$env:APPDATA\tray-anywhere\settings.json`; autostart via the per-user Run registry key.
 - Checks: `dotnet build` (warnings as errors) and `dotnet format`; no unit tests at first.
+- Layout: src/Tray holds only the tray-reading code and is the only project that uses UI Automation (`<UseWPF>`); src/TrayDump is the console tool; src/TrayAnywhere is the app (To do 3).
+- Implicit usings off; a short hand-written .editorconfig.
 
 ## Project docs
 - README.md: for visitors: what it does, build and run, autostart, known limitations, credits.

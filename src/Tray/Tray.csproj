@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Only the code that reads the tray lives here, so a Windows update that
+       changes the taskbar's UI Automation tree is fixed in this one project. -->
+  <PropertyGroup>
+    <!-- System.Windows.Automation (UIAutomationClient.dll) belongs to the WPF part
+         of the Windows Desktop framework; UseWindowsForms alone doesn't include it. -->
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+</Project>

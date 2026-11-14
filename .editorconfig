@@ -1,0 +1,21 @@
+# Code style, checked by `dotnet format --verify-no-changes`.
+root = true
+
+[*]
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{csproj,props,slnx,json}]
+indent_size = 2
+
+[*.cs]
+indent_size = 4
+# using lines: System namespaces first, then the rest, each group sorted.
+dotnet_sort_system_directives_first = true
+# One `namespace X;` line at the top instead of a block around the whole file.
+csharp_style_namespace_declarations = file_scoped
+dotnet_diagnostic.IDE0161.severity = warning
+# Braces around every if/for/while body, even a one-line one.
+csharp_prefer_braces = true
+dotnet_diagnostic.IDE0011.severity = warning

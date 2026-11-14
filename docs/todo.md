@@ -1,16 +1,15 @@
 ## Where we are
-- Now: To do 1 (Skeleton)
-- Next: To do 2, 3, 4, 5
+- Now: To do 2, step A (Spike: visible tray items)
+- Next: To do 3, 4, 5
 - Updated: 2026-11-14
 
 ## To do
 Next number: 6. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
-- To do 1: Skeleton: .NET 10 SDK, project layout, checks running (small; user 2026-11-14): docs/todo/01-skeleton.md
+- To do 2: Spike: console dump of visible and overflow tray items (medium; user 2026-11-14): docs/todo/02-tray-dump-spike.md
 
 ### Bugs me
-- To do 2: Spike: console dump of visible and overflow tray items (medium; user 2026-11-14): docs/todo/02-tray-dump-spike.md
 - To do 3: Grid window on a secondary monitor, with click forwarding (large; user 2026-11-14): docs/todo/03-grid-window.md
 - To do 4: GUI test and screenshots (medium; user 2026-11-14): docs/todo/04-gui-test.md
 - To do 5: Start with Windows, and the README's run and autostart steps (small; user 2026-11-14): docs/todo/05-autostart.md

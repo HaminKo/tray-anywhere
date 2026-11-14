@@ -2,6 +2,16 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-14: One solution; the tray code in its own library
+- Reason: the dump tool (To do 2) and the app (To do 3) both need the tray-reading code; a class library is the standard way to share it, and it keeps the code a Windows update may break in one place. One TrayAnywhere.slnx at the root, so a plain `dotnet build` builds everything; shared settings (net10.0-windows, nullable on, warnings as errors) in Directory.Build.props.
+- Decided by: the owner (Claude's suggestion).
+- Rejected: one project for everything (the dump is a console program and the app a windowed one; a windowed exe needs extra code to print to the terminal); linking the same source files into both projects (less standard, and easy to miss a file).
+
+## 2026-11-14: Implicit usings off; a short hand-written .editorconfig
+- Reason: with implicit usings off, every file lists the namespaces it uses, so a reader sees where names come from. The .editorconfig (~20 lines) sets indentation, System usings first, file-scoped namespaces and braces always; `dotnet format --verify-no-changes` fails on each of these (tested with a probe file).
+- Decided by: the owner (Claude's suggestion).
+- Rejected: implicit usings on (fewer lines, but names appear from nowhere); `dotnet new editorconfig` (389 lines of defaults, measured, that nobody would read).
+
 ## 2026-11-14: Checks are dotnet build (warnings as errors) and dotnet format; no unit tests at first
 - Reason: the tray reading depends on the live taskbar, so a unit test would mostly test a fake. The tray dump (To do 2) is the real test; a GUI test comes with To do 4.
 - Decided by: the owner (Claude's suggestion).
