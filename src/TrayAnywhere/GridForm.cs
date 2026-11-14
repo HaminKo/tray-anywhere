@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Tray;
@@ -45,11 +46,15 @@ internal sealed class GridForm : Form
     // The grid's monitor without its taskbar, in physical pixels; the grid stays inside it.
     private readonly Rectangle area;
     // The size of the grid without its title bar.
-    private readonly Size contentSize;
+    private Size contentSize;
     // The section titles and the problem line. The grid draws them itself instead of
     // using Labels: WinForms resizes a Label's font when the window's DPI changes, and
     // that happens as the grid opens on the 100 % monitor (logged; see OnLoad).
     private readonly List<Caption> captions = [];
+    // The tiles: the Pinned icons, then the Overflow icons, in the order of `shown`.
+    private readonly List<IconTile> tiles = [];
+    // The read the grid shows now.
+    private TrayState shown = TrayState.Empty;
 
     // state: what to show. monitor: the monitor to open on (the mouse's). place: where
     // the user last dragged the grid on that monitor, or null for the bottom-right corner.
@@ -79,17 +84,7 @@ internal sealed class GridForm : Form
         menu.Items.Add("Exit tray-anywhere", null, (_, _) => Application.Exit());
         ContextMenuStrip = menu;
 
-        var columns = Math.Clamp(Math.Max(state.Pinned.Count, state.Overflow.Count), MinColumns, MaxColumns);
-        var top = Px(EdgeSpace);
-        top = AddSection("Pinned", state.Pinned, columns, top);
-        top = AddSection("Overflow", state.Overflow, columns, top);
-        var noIcons = state.Pinned.Count == 0 && state.Overflow.Count == 0;
-        var problem = state.Problem ?? (noIcons ? "No tray icons found." : null);
-        if (problem != null)
-        {
-            top = AddProblem(problem, columns, top);
-        }
-        contentSize = new Size(2 * Px(EdgeSpace) + columns * Px(TileSize), top + Px(EdgeSpace));
+        LayOut(state);
         ClientSize = contentSize;
 
         // Made in the middle of its monitor; OnLoad moves it to its place there. Not at a
@@ -104,6 +99,9 @@ internal sealed class GridForm : Form
     // Where the user last dragged the grid, or null while it is in its default corner.
     public Point? UserPlace { get; private set; }
 
+    // A click on a tile: its tray icon, and the mouse button (Left or Right).
+    public event Action<TrayItem, MouseButtons>? IconClicked;
+
     // Where the grid was when the user pressed on its title bar.
     private Point dragStart;
 
@@ -117,6 +115,50 @@ internal sealed class GridForm : Form
         Location = Place();
         ClientSize = contentSize;
         Location = Place();
+    }
+
+    // Shows a newer read of the tray. With the same number of icons in each section and
+    // the same problem line, the tiles stay and change only where an icon's picture or
+    // tooltip did, so a tooltip being read or the hover border doesn't go away at every
+    // refresh. Otherwise the grid is laid out again, on the same monitor: in its corner it
+    // grows up and to the left, once dragged it keeps its top-left corner.
+    public void ShowState(TrayState state)
+    {
+        KeepOnTop();
+        if (state.Pinned.Count != shown.Pinned.Count || state.Overflow.Count != shown.Overflow.Count || state.Problem != shown.Problem)
+        {
+            LayOut(state);
+            ClientSize = contentSize;
+            Location = Place();
+            // The section titles and the problem line are drawn in OnPaint.
+            Invalidate();
+            return;
+        }
+        var items = state.Pinned.Concat(state.Overflow).ToList();
+        for (var i = 0; i < tiles.Count; i++)
+        {
+            UpdateTile(tiles[i], items[i]);
+        }
+        shown = state;
+    }
+
+    // Points a tile to the same icon in a newer read, and redraws it only if its picture
+    // or tooltip changed. The tile keeps the newest item, so a click goes to the newest
+    // button.
+    private void UpdateTile(IconTile tile, TrayItem item)
+    {
+        // The pictures are PNG bytes: the same bytes, the same picture. No bytes and
+        // bytes that aren't a picture both draw the generic icon.
+        if (!(tile.Item.Picture ?? []).AsSpan().SequenceEqual(item.Picture ?? []))
+        {
+            tile.SetPicture(Picture(item, Px(IconSize)));
+        }
+        var text = TooltipText(item);
+        if (text != toolTip.GetToolTip(tile))
+        {
+            toolTip.SetToolTip(tile, text);
+        }
+        tile.Item = item;
     }
 
     // Where the user last dragged the grid, or else the bottom-right corner of the
@@ -169,6 +211,34 @@ internal sealed class GridForm : Form
         Math.Max(area.Left, Math.Min(place.X, area.Right - size.Width)),
         Math.Max(area.Top, Math.Min(place.Y, area.Bottom - size.Height)));
 
+    // Makes the tiles and texts for this read, in place of any made before, and works out
+    // the grid's size (contentSize). The caller sets the window's size.
+    private void LayOut(TrayState state)
+    {
+        // The tooltips first, so the ToolTip doesn't hold on to disposed tiles. Dispose
+        // also takes a tile out of the grid's Controls.
+        toolTip.RemoveAll();
+        foreach (var tile in tiles)
+        {
+            tile.Dispose();
+        }
+        tiles.Clear();
+        captions.Clear();
+        shown = state;
+
+        var columns = Math.Clamp(Math.Max(state.Pinned.Count, state.Overflow.Count), MinColumns, MaxColumns);
+        var top = Px(EdgeSpace);
+        top = AddSection("Pinned", state.Pinned, columns, top);
+        top = AddSection("Overflow", state.Overflow, columns, top);
+        var noIcons = state.Pinned.Count == 0 && state.Overflow.Count == 0;
+        var problem = state.Problem ?? (noIcons ? "No tray icons found." : null);
+        if (problem != null)
+        {
+            top = AddProblem(problem, columns, top);
+        }
+        contentSize = new Size(2 * Px(EdgeSpace) + columns * Px(TileSize), top + Px(EdgeSpace));
+    }
+
     // A section: its title, then its icons in rows. Returns where the next part starts.
     // An empty section is left out.
     private int AddSection(string title, List<TrayItem> items, int columns, int top)
@@ -191,6 +261,10 @@ internal sealed class GridForm : Form
                 Bounds = new Rectangle(left + i % columns * tileSize, top + i / columns * tileSize, tileSize, tileSize),
             };
             toolTip.SetToolTip(tile, TooltipText(item));
+            // tile.Item, not item: the tile gets the newest item at each refresh.
+            tile.Click += (_, _) => IconClicked?.Invoke(tile.Item, MouseButtons.Left);
+            tile.RightClick += () => IconClicked?.Invoke(tile.Item, MouseButtons.Right);
+            tiles.Add(tile);
             Controls.Add(tile);
         }
         var rows = (items.Count + columns - 1) / columns;
@@ -275,6 +349,28 @@ internal sealed class GridForm : Form
         }
     }
 
+    // Windows can drop the grid's always-on-top flag: opened through the hotkey (which lets
+    // the app take the front), the window is created without it, though TopMost is set
+    // (traced in To do 3 step B; docs/research/winforms-dpi.md). So the grid sets it again
+    // once it shows, after Windows has activated and ordered it, and checks it at every
+    // refresh (ShowState).
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        KeepOnTop();
+    }
+
+    // Sets the always-on-top flag again, only if it is gone: setting it also lifts the grid
+    // above other always-on-top windows, such as notification popups in the same corner.
+    // Not through TopMost, which would also activate the grid and take the keyboard focus.
+    private void KeepOnTop()
+    {
+        if ((GetWindowLong(Handle, GwlExStyle) & WsExTopmost) == 0)
+        {
+            SetWindowPos(Handle, HwndTopmost, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate);
+        }
+    }
+
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
         if (keyData == Keys.Escape)
@@ -310,6 +406,12 @@ internal sealed class GridForm : Form
     private const TextFormatFlags ProblemFlags = TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix;
     private const int WmMoving = 0x0216;
     private const int DwmUseImmersiveDarkMode = 20;
+    private const int GwlExStyle = -20;
+    private const int WsExTopmost = 0x8;
+    private static readonly IntPtr HwndTopmost = new(-1);
+    private const uint SwpNoSize = 0x1;
+    private const uint SwpNoMove = 0x2;
+    private const uint SwpNoActivate = 0x10;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct Win32Rect
@@ -319,6 +421,12 @@ internal sealed class GridForm : Form
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
+
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr window, int index);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
 
     // A text the grid draws itself, in this rectangle, with this font and colour.
     private sealed record Caption(string Text, Font Font, Color Color, Rectangle Bounds, TextFormatFlags Flags);

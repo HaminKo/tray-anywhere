@@ -31,8 +31,12 @@ Choices (owner, 2026-11-14): docs/decisions.md "The grid app". Three steps, one 
   - The owner's Session Inbox popups sit in the bottom-right corner of both external monitors, above the grid.
   - Open notes (review): focus after a flyout flash at opening not confirmed; the tooltip shows an icon's first and current tooltip (Session Inbox); a second Alt+` during a read is ignored; Alt+` is the key left of 1 on US-style layouts only.
   - Step B must know: `IconTile.Item` is the icon to click; tiles swallow WM_CONTEXTMENU (the background has the Exit menu); icons kept after a failed read point to old buttons, so a click on one must do nothing and refresh; TrayReader runs one read at a time. Rebuilding the tiles in an open grid is safe (no text on them; titles are drawn in OnPaint), but the grid must never change monitor.
-- [ ] Step B: clicks (the grid stays open; a gone icon does nothing and refreshes) and the 2 s refresh while open, redrawing only when something changed (~80 lines).
-- [ ] Step C: the floating buttons (one per secondary monitor, drag, saved position, click opens the grid next to it or where it was last dragged on that monitor, right-click Exit, rebuilt when monitors change) and settings.json with the button and grid positions (~200 lines).
+- [x] Step B: clicks and the 2 s refresh (src/TrayAnywhere, ~160 lines). Owner tested it, 2026-11-14.
+  - Left and right clicks on a tile (also Enter and the menu key) go to the real icon on a background thread; a gone icon does nothing and the tray is read again at once. The refresh changes a tile in place when only its picture or tooltip changed, and lays the grid out again when icons come or go (in its corner it grows up and to the left; once dragged it keeps its top-left corner).
+  - Fixed while testing: Steam showed no menu until a forwarded click let other programs come to the front (decisions.md); the grid lost "always on top" when opened by the hotkey, so `GridForm.KeepOnTop` sets it again after it shows and at each refresh (docs/research/winforms-dpi.md).
+  - Steam's menu opens off to the side on the 150 % monitor: Steam's own bug; a README limitation and To do 7.
+  - Step C must know: a window opened by a click on a floating button may also lose "always on top" (only the hotkey path was traced); check the buttons' own flag the same way. Review notes left open: a re-layout during a drag can make the grid jump; after a re-layout the keyboard focus and hover border are gone until the mouse moves.
+- [ ] Step C (next): the floating buttons (one per secondary monitor, drag, saved position, click opens the grid next to it or where it was last dragged on that monitor, right-click Exit, rebuilt when monitors change) and settings.json with the button and grid positions (~200 lines).
 
 ## Test
 - Claude: build and format checks; the GUI test once To do 4 exists.

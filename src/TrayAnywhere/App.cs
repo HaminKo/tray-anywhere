@@ -1,11 +1,15 @@
+using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using Tray;
 
 namespace TrayAnywhere;
 
 // The running app. It has no main window: it waits for the hotkey and opens or closes
-// the grid. The app ends with Exit in the grid's right-click menu.
+// the grid, reads the tray again every 2 s while the grid is open, and passes clicks on
+// the grid to the real tray icons. The app ends with Exit in the grid's right-click menu.
 internal sealed class App : ApplicationContext
 {
     // Alt and the key left of 1: one hand, two neighbouring keys (owner's choice).
@@ -13,6 +17,8 @@ internal sealed class App : ApplicationContext
 
     private readonly Hotkey hotkey = new();
     private readonly TrayReader reader = new();
+    // Runs only while the grid is open (decided in To do 2: re-read everything every 2 s).
+    private readonly Timer refreshTimer = new() { Interval = 2000 };
     // The open grid, or null.
     private GridForm? grid;
     // Where the user last dragged the grid on each monitor, by the monitor's device name
@@ -26,6 +32,7 @@ internal sealed class App : ApplicationContext
         // Oemtilde: the ` and ~ key on a US keyboard.
         HotkeyRegistered = hotkey.Register(Hotkey.Alt, Keys.Oemtilde);
         hotkey.Pressed += OpenOrCloseGrid;
+        refreshTimer.Tick += (_, _) => RefreshGrid();
 
         // A first read at start: it warms up UI Automation (the first read is the
         // slowest), and if Explorer hasn't created the overflow window yet, the one
@@ -62,8 +69,10 @@ internal sealed class App : ApplicationContext
             var state = await reader.ReadAsync(openIfMissing: true);
             grid = new GridForm(state, monitor, gridPlaces.TryGetValue(monitor.DeviceName, out var place) ? place : null);
             grid.FormClosed += (_, _) => ForgetGrid();
+            grid.IconClicked += ClickIcon;
             grid.Show();
             grid.Activate();
+            refreshTimer.Start();
         }
         finally
         {
@@ -75,6 +84,7 @@ internal sealed class App : ApplicationContext
     // that monitor.
     private void ForgetGrid()
     {
+        refreshTimer.Stop();
         if (grid?.UserPlace is Point place)
         {
             gridPlaces[grid.Monitor.DeviceName] = place;
@@ -82,10 +92,48 @@ internal sealed class App : ApplicationContext
         grid = null;
     }
 
+    // Reads the tray again and shows it in the open grid. Never opens the flyout, so a
+    // failing read can't make it flash every 2 s; a part that fails keeps its last icons.
+    // A tick during a slow read gets that same read, so reads don't pile up.
+    private async void RefreshGrid()
+    {
+        var state = await reader.ReadAsync(openIfMissing: false);
+        // The grid may have closed during the read.
+        grid?.ShowState(state);
+    }
+
+    // A click on a tile goes to its real tray icon, on a background thread: the click
+    // calls into Explorer (17 to 82 ms, measured in To do 2), too long for the UI thread.
+    private async void ClickIcon(TrayItem item, MouseButtons button)
+    {
+        try
+        {
+            await Task.Run(() =>
+            {
+                if (button == MouseButtons.Right)
+                {
+                    TrayClicks.RightClick(item);
+                }
+                else
+                {
+                    TrayClicks.LeftClick(item);
+                }
+            });
+        }
+        catch (InvalidOperationException)
+        {
+            // The only exception TrayClicks throws: the icon is gone, or it was kept from
+            // an older read after a failed one. Show nothing; read the tray again now
+            // instead of at the next tick, so the grid catches up.
+            RefreshGrid();
+        }
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
         {
+            refreshTimer.Dispose();
             hotkey.Dispose();
         }
         base.Dispose(disposing);

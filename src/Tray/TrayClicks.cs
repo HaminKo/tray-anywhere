@@ -17,6 +17,7 @@ public static class TrayClicks
     public static void LeftClick(TrayItem item)
     {
         var button = ButtonOf(item);
+        LetAppComeToFront();
         try
         {
             var invoke = (InvokePattern)button.Element.GetCurrentPattern(InvokePattern.Pattern);
@@ -38,6 +39,7 @@ public static class TrayClicks
     public static void RightClick(TrayItem item)
     {
         var button = ButtonOf(item);
+        LetAppComeToFront();
         try
         {
             var runtimeId = button.Element.GetRuntimeId();
@@ -68,6 +70,22 @@ public static class TrayClicks
     // away after it was read or Explorer restarted. Callers catch this one type instead.
     private static InvalidOperationException ClickFailed(string which, TrayItem item, Exception e) =>
         new($"{which} click on \"{item.Name}\" failed (the icon may be gone): {e.Message}", e);
+
+    // Lets the tray app put its menu or window in front, as a real click does. Windows lets
+    // a program come to the front only if the program in front now allows it. On a real
+    // click that is Explorer (the taskbar was just clicked), which passes the right on; on
+    // a forwarded click it is the caller (the grid, just clicked), so the caller passes it
+    // on here. Steam shows its tray menu only with that right (owner's test, To do 3 step
+    // B; docs/research/uia-tray.md). Any process, not only the icon's: the window can
+    // belong to a helper process (Steam's menu does), and the icon's program is only a
+    // guess. If the caller isn't in front, Windows refuses and nothing changes.
+    private static void LetAppComeToFront() => AllowSetForegroundWindow(AnyProcess);
+
+    // ASFW_ANY in winuser.h.
+    private const int AnyProcess = -1;
+
+    [DllImport("user32.dll")]
+    private static extern bool AllowSetForegroundWindow(int processId);
 
     // ShowContextMenu is entry 91 of IUIAutomationElement3's table of methods: 3 of
     // IUnknown, 82 of IUIAutomationElement, 6 of IUIAutomationElement2 (uiautomationclient.h;
