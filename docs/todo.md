@@ -1,5 +1,5 @@
 ## Where we are
-- Now: To do 2, step C (Spike: owner exe and icon picture)
+- Now: To do 2, step D (Spike: left and right clicks)
 - Next: To do 3, 4, 5
 - Updated: 2026-11-14
 
@@ -18,7 +18,7 @@ Next number: 7. Numbers are permanent: never renumber or reuse one; to move a to
 - To do 6: When no icons are hidden, read an empty overflow instead of failing (small; user 2026-11-14): docs/todo/06-no-hidden-icons.md
 
 ## Later, only if the user asks
-- Live tray icon pictures (the exact current image, e.g. a changing badge). v1 uses the exe's icon, or Windows' stored snapshot if the spike shows it works.
+- Live pictures for overflow icons (the exact current image, e.g. a changing badge). v1 draws taskbar icons live and uses Windows' stored snapshot for overflow icons (To do 2 step C).
 - Notification balloons and toasts from tray apps.
 - Drag to reorder icons.
 - An installer.

@@ -2,11 +2,20 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using Tray;
 
 // TrayDump: prints the tray icons that src/Tray reads from the live taskbar and from
-// the overflow, one per line, and how long the reading took.
+// the overflow, one per line, with the program behind each app icon and how long the
+// reading took. "TrayDump pictures" also saves each icon's picture as a PNG file.
+
+var savePictures = args.Length == 1 && args[0] == "pictures";
+if (args.Length > 0 && !savePictures)
+{
+    Console.WriteLine("Usage: TrayDump [pictures]");
+    return 2;
+}
 
 var clock = Stopwatch.StartNew();
 List<TrayItem> visible;
@@ -45,8 +54,21 @@ catch (InvalidOperationException e)
 }
 var overflowRead = clock.ElapsedMilliseconds;
 
-// One numbering for both lists, so each icon has its own number.
+// One numbering for both lists, so each icon has its own number. The programs are found
+// on their own too: if Windows' list of tray icons can't be read, the icons are still listed.
 var items = visible.Concat(overflow).ToList();
+string? ownersError = null;
+clock.Restart();
+try
+{
+    items = IconOwners.Find(items);
+}
+catch (InvalidOperationException e)
+{
+    ownersError = e.Message;
+}
+var ownersRead = clock.ElapsedMilliseconds;
+
 for (var i = 0; i < items.Count; i++)
 {
     var item = items[i];
@@ -54,21 +76,51 @@ for (var i = 0; i < items.Count; i++)
     // Overflow items have no position while the flyout is closed.
     var place = item.Bounds.IsEmpty ? "-" : $"{item.Bounds.X},{item.Bounds.Y}";
     var size = item.Bounds.IsEmpty ? "-" : $"{item.Bounds.Width}x{item.Bounds.Height}";
-    Console.WriteLine($"{i + 1,3}  {kind,-10} {place,-10} {size,-7}  {OneLine(item.Name)}");
+    Console.WriteLine($"{i + 1,3}  {kind,-10} {place,-10} {size,-7}  {Owner(item),-32} {OneLine(item.Name)}");
 }
 Console.WriteLine();
+var appIcons = items.Where(item => item.Kind != TrayItemKind.System).ToList();
 Console.WriteLine($"{visible.Count} on the taskbar, {overflow.Count} in the overflow.");
-Console.WriteLine($"Taskbar: first read {firstRead} ms (includes start-up), second read {secondRead} ms. Overflow: {overflowRead} ms.");
+Console.WriteLine(
+    $"Programs of the {appIcons.Count} app icons: {appIcons.Count(item => item.OwnerFoundBy == OwnerFoundBy.Name)} by name, "
+    + $"{appIcons.Count(item => item.OwnerFoundBy == OwnerFoundBy.Order)} by order, "
+    + $"{appIcons.Count(item => item.OwnerFoundBy == OwnerFoundBy.None)} not found. "
+    + $"Pictures: {appIcons.Count(item => item.Picture != null)}.");
+Console.WriteLine(
+    $"Taskbar: first read {firstRead} ms (includes start-up), second read {secondRead} ms. "
+    + $"Overflow: {overflowRead} ms. Programs: {ownersRead} ms.");
 if (openedFlyout)
 {
     Console.WriteLine("Opened the overflow flyout once: Explorer hadn't created its window yet.");
 }
+if (savePictures)
+{
+    SavePictures(items);
+}
 if (overflowError != null)
 {
     Console.WriteLine("Overflow not read: " + overflowError);
-    return 1;
 }
-return 0;
+if (ownersError != null)
+{
+    Console.WriteLine("Programs not found: " + ownersError);
+}
+return overflowError != null || ownersError != null ? 1 : 0;
+
+// The program behind an app icon and how it was found, e.g. "steam.exe (name)";
+// "?" if not found. Empty for Windows' own buttons.
+static string Owner(TrayItem item)
+{
+    if (item.Kind == TrayItemKind.System)
+    {
+        return "";
+    }
+    if (item.ExePath == null)
+    {
+        return "?";
+    }
+    return $"{Path.GetFileName(item.ExePath)} ({item.OwnerFoundBy.ToString().ToLowerInvariant()})";
+}
 
 // The tooltip text on one line: its lines joined with " / ".
 static string OneLine(string name)
@@ -78,4 +130,26 @@ static string OneLine(string name)
     var printable = string.Concat(name.Where(c => char.GetUnicodeCategory(c) != UnicodeCategory.Format));
     var lines = printable.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
     return lines.Length == 0 ? "(no name)" : string.Join(" / ", lines);
+}
+
+// Saves each item's picture as NN.png (NN: its number in the list) in a folder of its own
+// under the temp folder, after removing the PNG files an earlier run left there.
+static void SavePictures(List<TrayItem> items)
+{
+    var folder = Path.Combine(Path.GetTempPath(), "tray-anywhere-pictures");
+    Directory.CreateDirectory(folder);
+    foreach (var old in Directory.GetFiles(folder, "*.png"))
+    {
+        File.Delete(old);
+    }
+    var saved = 0;
+    for (var i = 0; i < items.Count; i++)
+    {
+        if (items[i].Picture is byte[] png)
+        {
+            File.WriteAllBytes(Path.Combine(folder, $"{i + 1:00}.png"), png);
+            saved++;
+        }
+    }
+    Console.WriteLine($"Saved {saved} pictures to {folder}");
 }

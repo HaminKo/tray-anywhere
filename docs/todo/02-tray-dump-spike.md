@@ -29,10 +29,10 @@ Steps, each one a build step:
 - Owner's choices: system icons in the dump as `[system]`; line format number, kind, position, size, name last; tooltip lines joined with " / ".
 - B (done 2026-11-14): `Taskbar.ReadOverflowItems(openIfMissing, out openedFlyout)` reads the overflow from its hidden window, without opening the flyout (kind `Overflow`, empty Bounds); the list is live. After an Explorer start that window is missing until the flyout opens once: with `openIfMissing` the code opens and closes it via the arrow (found by its name; ~0.2 s flash, focus moves to the taskbar). TrayDump lists both with one numbering; exit 1 if either read fails. The owner tested it, an Explorer restart included.
 - Owner's choices: the overflow is re-read every 2 s with the visible icons; the fallback opens the flyout once; the arrow is found by its English name. Reasons in docs/decisions.md.
-- For the next steps:
-  - C: the icon with no name is the owner's PowerShell crash monitor (powershell.exe). A name is "first tooltip, space, current tooltip"; the first tooltip is the entry's `InitialTooltip`, so try matching by that prefix. After an Explorer restart some apps' names are empty.
-  - D: Session Inbox's button is 613 px wide; aim a simulated click at its `Image` child, not the button's centre. Overflow buttons have no rectangle while the flyout is closed; whether Invoke works on them then is untested. Invoking the arrow toggles the flyout.
-- C (next): owner exe and picture, as in Approach.
+- C (done 2026-11-14): `IconOwners.Find(items)` matches app icons to Windows' list of tray icons (`IconSettings.ReadAll()`, NotifyIconSettings in `UIOrderList` order): by name first, then by order in between; fills `ExePath`, `OwnerFoundBy`, `Picture` (PNG). Taskbar icons get a live picture: `ReadVisibleItems` draws the taskbar with PrintWindow and cuts out each icon. TrayDump shows the program column; `TrayDump pictures` saves PNGs to `$env:TEMP\tray-anywhere-pictures`. 13 of 14 found, all right. The owner tested it: pictures match, except overflow icons with a notification badge (Discord): stored snapshots are older.
+- Owner's choices: guess by order where the name gives nothing; taskbar pictures live (moved out of Later); overflow pictures stay stored snapshots. Reasons in docs/decisions.md; dead ends (ITrayNotify and others) in docs/research/uia-tray.md "Spike step C".
+- For step D: Session Inbox's button was 613 px wide once; aim a simulated click at its `Image` child, not the button's centre. Overflow buttons have no rectangle while the flyout is closed; whether Invoke works on them then is untested. Invoking the arrow toggles the flyout, and while it is open the arrow's name is "Show Hidden Icons Hide".
+- D (next): clicks, as in Approach.
 
 ## Test
 - Claude: runs the dump and compares it with the real taskbar (count, names).

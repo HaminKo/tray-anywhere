@@ -2,6 +2,12 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-14: Icon pictures: drawn live for taskbar icons; Windows' stored snapshot, matched by name then order, for overflow icons
+- Reason: nothing links a tray icon to its program (Windows' undocumented ITrayNotify, UI Automation and the old Win32 tray all failed, measured). Windows' list of tray icons (NotifyIconSettings) has each program, a snapshot picture and an order that matched the overflow 12 of 12. Matching by name first, then by order for the icons in between, found 13 of 14 app icons, none wrong (measured once; docs/research/uia-tray.md "Spike step C"). Taskbar icons are drawn from the taskbar itself with PrintWindow: the live picture, also under a full-screen window. That fixes two icons that share one entry (two PowerShell scripts) and shows status changes, for about 50 to 75 ms more per read.
+- Decided by: the owner (Claude's suggestions), To do 2 step C.
+- Rejected: a generic picture whenever the name gives no match (about half the overflow would be generic, and icons with no name couldn't be told apart); the exe's own icon (wrong for Windows' icons and for scripts); opening the flyout to draw the overflow icons (a flash at every read).
+- Moves the taskbar part of "Live tray icon pictures" out of Later; overflow icons stay snapshots, which can be older than the real icon.
+
 ## 2026-11-14: Read the overflow from its hidden window; refresh it with the visible icons every 2 s
 - Reason: the overflow flyout's window exists while closed, and its buttons can be read through UI Automation from the window handle without opening it: no flicker, 16 to 28 ms per read. Its list followed added and removed icons and tooltip changes within a fraction of a second while the flyout stayed closed (measured with a test icon; docs/research/uia-tray.md "Spike step B"). So the reason for reading the overflow only on opening (the flyout would flash) is gone. Replaces the refresh part of "Grid opens by hotkey and floating button..." below.
 - Decided by: the owner (Claude's suggestion), To do 2 step B.

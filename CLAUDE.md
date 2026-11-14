@@ -27,7 +27,7 @@ Don't build what's under "Later" in docs/todo.md until asked.
   - Once per step: `dotnet format --verify-no-changes`, ~11 s; and, from To do 2 on, the tray dump on the live taskbar: `dotnet run --project src/TrayDump`.
   - GUI test and screenshots: added by To do 4.
 - Docs to update when behaviour changes: README.md (headline features, build and run, autostart, known limitations, Credits) and the docs/ pages it links to; docs/research/uia-tray.md when the taskbar's UI Automation tree or the reading code changes.
-- Must keep working: `dotnet run --project src/TrayDump` lists every icon on the primary taskbar's tray and in the overflow (exit code 0; 1 if either read fails).
+- Must keep working: `dotnet run --project src/TrayDump` lists every icon on the primary taskbar's tray and in the overflow, with each app icon's program (exit code 0; 1 if a read fails).
 - Review checklist: none yet: the built-in code-review skill.
 
 ## Status

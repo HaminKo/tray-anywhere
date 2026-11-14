@@ -111,14 +111,63 @@ Method: a ~40-line test program (WinForms `NotifyIcon`, compiled with the .NET F
 - If the overflow window is missing and `openIfMissing` is true: invoke the arrow (found by its name), wait up to 3 s for the window to show (else an error, so a slow opening isn't left open), invoke the arrow again to close it, then read. TrayDump passes true and prints a line when it did this.
 - TrayDump on the live taskbar: 12 on the taskbar, 12 in the overflow (the same 12 as the probes); overflow read 19 ms, after the taskbar reads in the same process.
 
+## 2026-11-14: Spike step C: owner exe and icon picture (build 26300.9711)
+Method: read-only PowerShell probes (registry, processes, COM, PrintWindow), compared with TrayDump on the live tray: 3 app icons on the taskbar (the crash monitor with no name, Session Inbox, OneDrive) and 12 in the overflow (4 with no name since the Explorer restart).
+
+### NotifyIconSettings, in more detail (measured)
+- 43 subkeys now (the first probe noted 51; not explained). Root values: `Version` = 3, `MigrationStatus` = "Migration started", and `UIOrderList`.
+- `UIOrderList` (REG_BINARY, 344 bytes) is 43 numbers of 8 bytes, little-endian: each is a subkey's name, every subkey once. So it is an order of all entries.
+- `ExecutablePath` is either a plain path or `{known-folder GUID}\rest`, e.g. `{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}` = Program Files (x86), `{6D809377-6AF0-444B-8957-A3773F02200E}` = Program Files. All 43 resolved with `SHGetKnownFolderPath` (shell32).
+- `IconSnapshot` pictures are 16x16 to 48x48 PNGs. Drawn on one sheet they look like the apps' tray icons.
+- One entry per exe and `UID` (or `IconGuid`): two PowerShell scripts with a tray icon each (the crash monitor and Session Inbox, both `powershell.exe`, both UID 1, inferred from the WinForms default) share **one** entry. Its snapshot is the crash monitor's warning triangle; Session Inbox shows a grey circle (seen in a PrintWindow render, below). So one of the two would get the wrong picture.
+- An exe that runs doesn't always have an icon: `jucheck.exe` (Java Update) runs, but its icon didn't come back after the Explorer restart. `explorer.exe` has 3 entries (a plug icon with UID 0; Safely Remove Hardware, IconGuid `{7820AE78-…}`; Bluetooth, `{6DA68F06-…}`) and shows 1 icon now. `Malwarebytes.exe` has 2 entries (UID 1 and 2).
+- A running check by full path through WMI (`Win32_Process.ExecutablePath`) missed Task Manager: the path is empty for it, probably because it runs elevated (inferred). `QueryFullProcessImageName` with limited query rights may work there (untested).
+- Last-write times of the subkeys: 22 of 43 are 2025-04-03 20:29:49 (the same second, probably a migration; inferred), including Steam, Battle.net and OneDrive, whose icons are in the tray now. So entries are not rewritten when an icon is added again, and the time doesn't tell which have an icon now.
+
+### Order (measured, one comparison)
+- The overflow's order in step B (names read before the Explorer restart): Claude, Copilot, Discord, New quick note, Phone Link, Java Update, Google Drive, Safely Remove Hardware, Malwarebytes, Steam, Battle.net, Windows Security.
+- Today's `UIOrderList`, keeping only entries whose exe runs and that aren't promoted: Discord, Claude, Copilot (`copilotapp.exe`), Malwarebytes (UID 2), New quick note, Phone Link, Java Update, explorer (plug), Google Drive, Task Manager, explorer (Safely Remove Hardware), Malwarebytes (UID 1), Steam, Battle.net, Windows Security, explorer (Bluetooth).
+- The flyout's order is that list with the extra entries skipped, **except Discord** (first there, third in the flyout). Discord's subkey was written today at 12:36, after step B's reads, so it may have moved since; unknown. Promoted entries that run: powershell.exe, then OneDrive: the taskbar's order too.
+
+### Dead ends (measured)
+- **ITrayNotify** (the undocumented COM interface Chromium used to list and promote tray icons): `CLSID_TrayNotify` `{25DEAD04-1EAC-4911-9E3A-AD0A4AB560FD}`, `ITrayNotifyWin8` `{D133CE13-…}` and the callback `INotificationCB` `{D782CCBA-AFB0-43F1-94DB-FDA3779EACCB}` are registered (proxy in ActXPrxy.dll). `RegisterCallback` returns S_OK with handle 0; Explorer asks the callback for `INotificationCB` but never calls `Notify`, within 2 s of pumping messages (one probe). Chromium's code says the calls came during `RegisterCallback` on older Windows. Not usable here.
+- **UI Automation**: every supported property of an app button and its `Image` child, dumped: nothing names the owner (ProcessId is explorer's; RuntimeId is opaque).
+- **Win32**: `TrayNotifyWnd` has no child windows on this build, so the Windows 10 way (a `ToolbarWindow32` with each icon's window handle and ID) is gone.
+- **Screen copy** (`CopyFromScreen` of the tray area): returned a full-screen window that covered the taskbar at the time, not the icons.
+- **The hidden overflow window** has a 0x0 rectangle: `PrintWindow` has nothing to render.
+
+### The open flyout, captured (measured, 13:10)
+- With the owner's OK, a probe opened the flyout, rendered it with `PrintWindow` (it has a rectangle while open: 351x231 here, buttons on a 60 px grid) and cut out each button's `Image` child. Real order: Discord, Claude, Copilot, New quick note, Phone Link, Google Drive, Task Manager, Safely Remove Hardware, Malwarebytes, Steam, Battle.net, Windows Security.
+- That is exactly the `UIOrderList` order above with the extra entries skipped: 12 of 12, Discord included. So step B's Discord difference was a move since then. The order holds (one comparison).
+- Snapshots can be old: Windows Security's live icon has a green check, its snapshot a yellow warning; Discord's live icon has a red badge, its snapshot none. The other 10 looked the same.
+- While the flyout is open, the arrow's `Name` is "Show Hidden Icons Hide" (its tooltip changed to "Hide"; the naming rule from step B), so a search for exactly "Show Hidden Icons" fails then. After closing it is "Show Hidden Icons" again (TrayDump).
+- Probe mistake, for later probes: PowerShell passes `$null` to a `string` P/Invoke parameter as an empty string, so `FindWindowEx(..., 'TopLevelWindowForOverflowXamlIsland', $null)` looks for an empty title and found nothing (this window's title is "System tray overflow window."). The probe then took the window as missing and left the flyout open for a few minutes. Use `[NullString]::Value`. The C# code passes a real null.
+
+### Program descriptions as a name hint (measured)
+- `FileVersionInfo.FileDescription` of the tray programs: Google Drive, Malwarebytes, Steam, Task Manager, Copilot, Claude, Discord match their icon's name; "Microsoft Phone Link", "Microsoft OneDrive", "Windows PowerShell", "Windows Security notification icon" don't; Battle.net's has an odd character. 17 files in 32 ms (PowerShell, first read).
+- Without the description, "Google Drive" has no hint (the exe is `GoogleDriveFS.exe`, no first tooltip), and an order-only guess gives it Java Update's entry.
+
+### PrintWindow renders the taskbar (measured)
+- `PrintWindow(Shell_TrayWnd, PW_RENDERFULLCONTENT)` (flag 2) rendered the taskbar with its icons while a full-screen window covered it: arrow, warning triangle, grey circle, OneDrive cloud. 34 to 59 ms for the 2560x72 taskbar (5 runs, PowerShell). The `Image` child's rectangle (24x24 here) gives each icon's place in that picture. It is the live picture, on the taskbar's background (not transparent). Taskbar icons only.
+
+### In the code (step C)
+- src/Tray/IconSettings.cs reads the entries in `UIOrderList` order and resolves known-folder paths. src/Tray/IconOwners.cs matches: candidates are entries whose program runs (full paths through `QueryFullProcessImageName` with limited query rights, so elevated programs count) and whose `IsPromoted` fits the icon's place. An icon whose name starts with an entry's first tooltip, or holds its exe's file name or `FileDescription`, takes the first such candidate after the previous match; icons without such a name take the candidates between two matches in order. Each `TrayItem` gets `ExePath`, `OwnerFoundBy` (Name, Order, None) and `Picture` (PNG bytes).
+- Taskbar icons: `Taskbar.ReadVisibleItems` draws the taskbar once per read and cuts out each app icon's `Image` rectangle. The thread is made per-monitor DPI aware for `GetWindowRect` and `PrintWindow`, so it works from TrayDump, which isn't DPI aware (24x24 crops, measured). `Bitmap` builds with only `<UseWPF>` in Tray.csproj. Overflow icons: the matched entry's snapshot.
+- Result on the live tray (TrayDump, 13:16, Task Manager closed by then): 14 app icons, 6 found by name, 7 by order, 1 not found (Session Inbox: its exe's only entry was already taken by the crash monitor). All 13 right, compared with the flyout capture and the names. The pictures were right too, except Windows Security's old snapshot (yellow warning; live: green check).
+- Owner's test (2026-11-14): the saved pictures match the taskbar and the open flyout, except overflow icons with a notification badge (Discord's red dot is missing from its snapshot). Session Inbox's live taskbar picture showed its current "2" badge. Stored snapshots come in different sizes (16 to 64 px; Malwarebytes' is 64), so the grid must scale them to one size.
+- Time, warm, release build, about 36 % CPU load from other programs: `ReadVisibleItems` 77 to 104 ms with the pictures (5 runs; it was 16 to 29 ms without them), of which `PrintWindow` alone was 24 to 58 ms. Overflow 15 to 28 ms. `IconOwners.Find` 43 to 51 ms (registry 1 to 2 ms; the rest is the processes and the exes' version info). So a full refresh costs about 150 ms. First runs were slower (taskbar 238 to 264 ms, owners 83 to 90 ms).
+- Known limits, not seen here (code review): a short exe name or description inside an unrelated tooltip (e.g. "Code" in "Unicode") is a false name match and shifts the order matches after it; a running program without an icon that sits before the last unnamed icon of a gap shifts the icons after it; an entry without `IsPromoted` that Windows shows on the taskbar would count as overflow (new icons went to the overflow here, measured in step B).
+
 ## Open questions for the spike (To do 2)
 - Overflow, step B: answered in "Spike step B". The hidden list is live; it doesn't exist after an Explorer start until the flyout opens once; its order matched the open flyout (owner, 2026-11-14).
 - Right click: does `IUIAutomationElement3::ShowContextMenu` (COM UI Automation; not in the .NET System.Windows.Automation wrapper) open the app's menu? Otherwise a simulated right-click on the real icon.
-- Owner exe: can tray items be matched to NotifyIconSettings entries reliably? Known answer to test step C against: the icon with the empty name is the owner's crash-monitor script, a .bat that runs a PowerShell script in `powershell.exe` (owner, 2026-11-14; path in docs/local.md). That fits the `IsPromoted = 1` entry for powershell.exe.
-- Session Inbox's 613 px rectangle (step A): why, and does it matter for clicks?
+- Owner exe: can tray items be matched to NotifyIconSettings entries reliably? Known answer to test step C against: the icon with the empty name is the owner's crash-monitor script, a .bat that runs a PowerShell script in `powershell.exe` (owner, 2026-11-14; path in docs/local.md). That fits the `IsPromoted = 1` entry for powershell.exe. Step C: no exact link exists (every other source is a dead end), so matching is a best guess from name hints, running exes, `IsPromoted` and `UIOrderList`. It found 13 of 14 app icons, all right (measured once). Details in "Spike step C".
+- Session Inbox's 613 px rectangle (step A): why, and does it matter for clicks? In step C's dump it was 48 px wide, like the others.
 
 ## Sources
 - UI Automation for Win32: https://learn.microsoft.com/en-us/windows/win32/winauto/entry-uiauto-win32
 - System.Windows.Automation (.NET): https://learn.microsoft.com/en-us/dotnet/api/system.windows.automation
 - IUIAutomationElement3::ShowContextMenu: https://learn.microsoft.com/en-us/windows/win32/api/uiautomationclient/nf-uiautomationclient-iuiautomationelement3-showcontextmenu
 - NotifyIconSettings: no official documentation; own observation on this PC.
+- ITrayNotify and INotificationCB: Chromium's chrome/browser/ui/views/status_icons/status_tray_state_changer_win.h (interface layout as Chromium used it; undocumented by Microsoft).
+- PrintWindow and PW_RENDERFULLCONTENT: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-printwindow
