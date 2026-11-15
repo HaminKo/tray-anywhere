@@ -34,6 +34,12 @@ dotnet run --project src/TrayDump
 
 Add `-- pictures` to also save each icon's picture to a temp folder, or `-- click 5` / `-- rclick 5` to left- or right-click icon 5 of the list.
 
+A GUI test starts the app with a settings file of its own, works its buttons and popup, and checks what they show. It needs a second monitor and a closed tray-anywhere, and it shows a test tray icon of its own for a few seconds. It never uses your mouse or keyboard:
+
+```powershell
+dotnet run --project src/GuiTest
+```
+
 ## Known limitations
 - Some apps open their right-click menu next to the real tray on the main monitor, not at the mouse. tray-anywhere can't change that.
 - Steam's menu can open away from the mouse, even off-screen, on a monitor with other scaling than 100 %. Use the popup on another monitor for Steam, or on the left part of that one.

@@ -1,0 +1,82 @@
+using System;
+using System.Drawing;
+using System.Windows.Automation;
+using static GuiTest.Win32;
+
+namespace GuiTest;
+
+// One of the app's windows as UI Automation finds it: the grid, a floating button or a
+// tile (in WinForms each control is a window of its own). The test works it with messages
+// to this window only, the ones Windows would send it for the real mouse and keyboard.
+internal sealed class AppWindow
+{
+    public AppWindow(AutomationElement element)
+    {
+        Element = element;
+        Handle = new IntPtr(element.Current.NativeWindowHandle);
+        Id = element.Current.AutomationId;
+        Name = element.Current.Name;
+    }
+
+    public AutomationElement Element { get; }
+    public IntPtr Handle { get; }
+    // The name the app gives it for the test: "Grid", "FloatingButton", or a tile's section.
+    public string Id { get; }
+    // A tile's tooltip text.
+    public string Name { get; }
+
+    // The window's rectangle as the app places it (a form's Bounds), in physical pixels.
+    // For the grid that includes Windows' invisible border around its frame.
+    public Rectangle Bounds
+    {
+        get
+        {
+            GetWindowRect(Handle, out var r);
+            return Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
+        }
+    }
+
+    public bool IsOnTop => (GetWindowLong(Handle, GwlExStyle) & WsExTopmost) != 0;
+
+    // Still shown: false once the window is closed (its handle is gone then too).
+    public bool IsOpen => IsWindowVisible(Handle);
+
+    // A left click: button down and up at (1, 1) inside the window. The app's own mouse
+    // handling runs; the real mouse doesn't move.
+    public void Click()
+    {
+        // x in the low 16 bits, y in the high ones.
+        var place = new IntPtr(1 | (1 << 16));
+        PostMessage(Handle, WmLButtonDown, new IntPtr(MkLButton), place);
+        PostMessage(Handle, WmLButtonUp, IntPtr.Zero, place);
+    }
+
+    // What Windows sends after a right click. -1 as the place stands for the menu key, so
+    // WinForms opens the window's menu in its middle wherever the mouse is.
+    public void RightClick() => PostMessage(Handle, WmContextMenu, Handle, new IntPtr(-1));
+
+    public void PressEscape()
+    {
+        PostMessage(Handle, WmKeyDown, new IntPtr(VkEscape), IntPtr.Zero);
+        PostMessage(Handle, WmKeyUp, new IntPtr(VkEscape), IntPtr.Zero);
+    }
+
+    // What a click on the window's X sends.
+    public void PressClose() => PostMessage(Handle, WmSysCommand, new IntPtr(ScClose), IntPtr.Zero);
+
+    // A drag by the title bar as the app sees one: Windows' "move begins", the move, and
+    // "move ends" (tried in To do 3 step C). The real drag's WM_MOVING, with which the
+    // grid keeps itself on its monitor, doesn't come this way.
+    public void Drag(Point place)
+    {
+        SendMessage(Handle, WmEnterSizeMove, IntPtr.Zero, IntPtr.Zero);
+        SetWindowPos(Handle, IntPtr.Zero, place.X, place.Y, 0, 0, SwpNoSize | SwpNoZOrder | SwpNoActivate);
+        SendMessage(Handle, WmExitSizeMove, IntPtr.Zero, IntPtr.Zero);
+    }
+
+    // UI Automation's Invoke: WinForms runs the control's click, as for Enter or a click.
+    public void Invoke() => Invoke(Element);
+
+    public static void Invoke(AutomationElement element) =>
+        ((InvokePattern)element.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+}

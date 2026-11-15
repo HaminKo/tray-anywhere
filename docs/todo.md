@@ -1,5 +1,5 @@
 ## Where we are
-- Now: To do 4 (GUI test and screenshots)
+- Now: To do 4, step B (screenshots)
 - Next: To do 5
 - Updated: 2026-11-14
 

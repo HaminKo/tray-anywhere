@@ -1,0 +1,26 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.Windows.Forms;
+
+namespace GuiTest;
+
+// A tray icon of the test's own, so the test can check that the grid shows a new icon,
+// passes left and right clicks on to it and drops it when it goes, without clicking any
+// of the user's real icons. Windows puts a new program's icon in the overflow.
+internal sealed class TestIcon : IDisposable
+{
+    // Its tooltip; the tray button and the grid's tile get it as their name.
+    public const string Name = "tray-anywhere GUI test";
+
+    private readonly NotifyIcon icon = new() { Icon = SystemIcons.Application, Text = Name, Visible = true };
+
+    public TestIcon() => icon.MouseClick += (_, e) => Clicks.Add(e.Button);
+
+    // The mouse buttons of the clicks it got, in order. WinForms adds them on this thread
+    // while the test waits (Checks.WaitUntil lets its messages through).
+    public List<MouseButtons> Clicks { get; } = [];
+
+    // Takes the icon out of the tray.
+    public void Dispose() => icon.Dispose();
+}

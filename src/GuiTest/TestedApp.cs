@@ -1,0 +1,99 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Windows.Automation;
+using static GuiTest.Win32;
+
+namespace GuiTest;
+
+// The app under test: the copy of TrayAnywhere.exe next to this program (GuiTest.csproj
+// puts it there), started with the test's own settings file. Finds the app's windows by
+// the names it gives them for the test.
+internal sealed class TestedApp : IDisposable
+{
+    private readonly Process process;
+    // The window in front as the app starts: the user's (VS Code, a terminal).
+    private readonly IntPtr userWindow = GetForegroundWindow();
+
+    // settingsPath: the file the app reads its places from, and saves a dragged one to.
+    public TestedApp(string settingsPath)
+    {
+        var exe = Path.Combine(AppContext.BaseDirectory, "TrayAnywhere.exe");
+        process = Process.Start(exe, ["--settings", settingsPath]);
+    }
+
+    public bool HasExited => process.HasExited;
+    public int ExitCode => process.ExitCode;
+
+    public List<AppWindow> Buttons() => TopWindows(new PropertyCondition(AutomationElement.AutomationIdProperty, "FloatingButton"));
+
+    // The open grid, or null.
+    public AppWindow? Grid() => TopWindows(new PropertyCondition(AutomationElement.AutomationIdProperty, "Grid")).FirstOrDefault();
+
+    // The grid's tiles in their order: the Pinned ones, then the Overflow ones.
+    public static List<AppWindow> Tiles(AppWindow grid) =>
+        Find(grid.Element, TreeScope.Children, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button));
+
+    // An item with this name in a right-click menu the app has open, or null.
+    public AutomationElement? MenuItem(string name)
+    {
+        foreach (var menu in TopWindows(new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Menu)))
+        {
+            var item = menu.Element.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name));
+            if (item != null)
+            {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    // Sends the app's hidden hotkey window the message Windows sends it for Alt+`. The
+    // real keys would reach the window in front if the app hadn't registered them.
+    public void PressHotkey()
+    {
+        var window = FindWindowEx(MessageOnlyParent, IntPtr.Zero, null, "tray-anywhere hotkey");
+        GetWindowThreadProcessId(window, out var processId);
+        if (window == IntPtr.Zero || processId != process.Id)
+        {
+            throw new CheckFailed("the app's hotkey window isn't there");
+        }
+        // 1: the hotkey's number (Hotkey.cs).
+        PostMessage(window, WmHotkey, new IntPtr(1), IntPtr.Zero);
+    }
+
+    // Gives the front back to the user's window if one of the app's took it. The grid
+    // brings itself to the front when it opens, when Windows lets it, and keys the user
+    // types would then go to it, where Space or Enter clicks a real tray icon's tile
+    // (docs/research/gui-testing.md). Windows may refuse; then the user is told.
+    public void GiveFrontBack()
+    {
+        GetWindowThreadProcessId(GetForegroundWindow(), out var processId);
+        if (processId == process.Id && !SetForegroundWindow(userWindow))
+        {
+            Console.WriteLine("note  the grid has the keyboard: don't type until the test ends");
+        }
+    }
+
+    // The app's top-level windows that meet the condition.
+    private List<AppWindow> TopWindows(Condition condition) => Find(
+        AutomationElement.RootElement,
+        TreeScope.Children,
+        new AndCondition(new PropertyCondition(AutomationElement.ProcessIdProperty, process.Id), condition));
+
+    private static List<AppWindow> Find(AutomationElement parent, TreeScope scope, Condition condition) =>
+        parent.FindAll(scope, condition).Cast<AutomationElement>().Select(element => new AppWindow(element)).ToList();
+
+    // Ends the app if a failed check left it running.
+    public void Dispose()
+    {
+        if (!process.HasExited)
+        {
+            process.Kill();
+            process.WaitForExit();
+        }
+        process.Dispose();
+    }
+}

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The GUI test: a console program that starts the real app and drives it through
+       window messages and UI Automation. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- WinForms for the test's own tray icon and the monitors; WPF for UI Automation
+         (System.Windows.Automation, as in src/Tray). -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Builds the app with the test and copies it next to the test, which starts that
+         copy: always the newest build, and the app's own bin folder stays unlocked. -->
+    <ProjectReference Include="..\TrayAnywhere\TrayAnywhere.csproj" />
+  </ItemGroup>
+</Project>

@@ -10,8 +10,26 @@ internal static class Program
 {
     // WinForms windows need a single-threaded COM apartment on the UI thread.
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
+        // No arguments, or "--settings PATH" for another settings file: the GUI test
+        // (src/GuiTest) uses one in the temp folder, so it never changes the user's.
+        // Anything else is refused, so a mistyped option can't fall back to the user's file.
+        string settingsPath;
+        if (args.Length == 0)
+        {
+            settingsPath = Settings.DefaultPath;
+        }
+        else if (args.Length == 2 && args[0] == "--settings")
+        {
+            settingsPath = args[1];
+        }
+        else
+        {
+            MessageBox.Show("tray-anywhere takes no arguments, or --settings and a file path.", "tray-anywhere");
+            return;
+        }
+
         // One copy at a time: a second one couldn't register the hotkey. "Local\" makes
         // the name count per signed-in user session.
         using var oneCopy = new Mutex(initiallyOwned: true, @"Local\tray-anywhere", out var isFirstCopy);
@@ -35,7 +53,6 @@ internal static class Program
         // and with no secondary monitor the app has no window yet, so it is made here.
         SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
 
-        var settingsPath = Settings.DefaultPath;
         var settings = Settings.Load(settingsPath, out var settingsProblem);
         // Said before the app starts: once it runs, its grid and buttons (always on top)
         // could open over this message while it waits for an answer.

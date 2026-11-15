@@ -13,7 +13,14 @@ Once the grid window exists (To do 3), Claude needs a way to see it: a test that
 - Add the commands to CLAUDE.md "Build specifics" and docs/local.md.
 
 ## Ask the user
-- Which monitor for test screenshots? Suggested: whichever the mouse is on, as in the app.
+- ~~Which monitor for test screenshots? Suggested: whichever the mouse is on, as in the app.~~ Answered (owner, 2026-11-14, Claude's suggestion): each secondary monitor, opened through its button, one file per monitor (or one by name). Not the main monitor: only the mouse picks it, and the test never moves the mouse.
+- Answered the same way (owner, Claude's suggestions): the test shows a tray icon of its own for the refresh and the clicks, never clicking the owner's apps; it stops at once if tray-anywhere is running and never closes it; the app gets a `--settings PATH` option, UI Automation names (grid, button, tiles with their section and tooltip) and a title on the hotkey's hidden window.
+
+## Progress
+- Step A (done, tested by the owner 2026-11-14): the GUI test, `dotnet run --project src/GuiTest`, 40 checks in about 8 s, posted messages and UI Automation only. ~690 lines in src/GuiTest (planned ~350; not trimmed), ~40 in the app: `--settings PATH` (other arguments refused), AutomationIds and tile names, the hotkey window's title.
+  - The test starts the copy of the app next to it (a ProjectReference) and helpers live in AppWindow.cs (one window's messages), TestedApp.cs (finding windows), Checks.cs (Check, WaitUntil, WaitFor).
+  - For step B: open a grid with `WaitForGrid` (it gives the front back); a menu opened by a posted message doesn't show once the app has been in front, so Exit is only tested in a fresh app (docs/research/gui-testing.md).
+- Step B: screenshots, `dotnet run --project src/GuiTest -- screenshots [DISPLAYn]` (~80 lines): the grid with its button per secondary monitor, cropped to their visible frames, PNGs in `$env:TEMP\tray-anywhere-gui\`, paths printed. Measure sizes and token cost (estimate); Build specifics; a winforms.md for the gui-test skill.
 
 ## Test
 - Claude: the test passes and a screenshot shows the grid with icons.

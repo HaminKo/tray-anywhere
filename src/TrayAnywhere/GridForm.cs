@@ -80,6 +80,8 @@ internal sealed class GridForm : Form
         textFont = new Font("Segoe UI", Px(TextHeight), GraphicsUnit.Pixel);
 
         Text = "tray-anywhere";
+        // Its AutomationId in UI Automation, by which the GUI test finds it.
+        Name = "Grid";
         // A small title bar with only an X; dragging it moves the grid.
         FormBorderStyle = FormBorderStyle.FixedToolWindow;
         ShowInTaskbar = false;
@@ -169,9 +171,17 @@ internal sealed class GridForm : Form
         var text = TooltipText(item);
         if (text != toolTip.GetToolTip(tile))
         {
-            toolTip.SetToolTip(tile, text);
+            SetText(tile, text);
         }
         tile.Item = item;
+    }
+
+    // The tile's tooltip, and the same text as its name in UI Automation, which screen
+    // readers read and the GUI test finds tiles by.
+    private void SetText(IconTile tile, string text)
+    {
+        toolTip.SetToolTip(tile, text);
+        tile.AccessibleName = text;
     }
 
     // Where the user last dragged the grid; or else next to the floating button; or else
@@ -318,8 +328,11 @@ internal sealed class GridForm : Form
             var tile = new IconTile(item, Picture(item, Px(IconSize)), Background, HoverBorder, Math.Max(1, Px(1)))
             {
                 Bounds = new Rectangle(left + i % columns * tileSize, top + i / columns * tileSize, tileSize, tileSize),
+                // The section ("Pinned" or "Overflow") as the tile's AutomationId in UI
+                // Automation, for the GUI test.
+                Name = title,
             };
-            toolTip.SetToolTip(tile, TooltipText(item));
+            SetText(tile, TooltipText(item));
             // tile.Item, not item: the tile gets the newest item at each refresh.
             tile.Click += (_, _) => IconClicked?.Invoke(tile.Item, MouseButtons.Left);
             tile.RightClick += () => IconClicked?.Invoke(tile.Item, MouseButtons.Right);

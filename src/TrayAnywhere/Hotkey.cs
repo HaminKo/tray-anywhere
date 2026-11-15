@@ -22,7 +22,9 @@ internal sealed class Hotkey : NativeWindow, IDisposable
 
     private bool registered;
 
-    public Hotkey() => CreateHandle(new CreateParams { Parent = MessageOnlyParent });
+    // The window's title: never shown, but the GUI test finds the window by it and sends
+    // it WM_HOTKEY in place of the real keys.
+    public Hotkey() => CreateHandle(new CreateParams { Parent = MessageOnlyParent, Caption = "tray-anywhere hotkey" });
 
     public event Action? Pressed;
 

@@ -51,6 +51,8 @@ internal sealed class FloatingButton : Form
         savedPlace = place;
 
         Text = "tray-anywhere";
+        // Its AutomationId in UI Automation, by which the GUI test finds it.
+        Name = "FloatingButton";
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         // Sizes are in this monitor's physical pixels already (see GridForm).
