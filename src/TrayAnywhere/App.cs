@@ -1,15 +1,17 @@
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using Microsoft.Win32;
 using Tray;
 
 namespace TrayAnywhere;
 
-// The running app. It has no main window: it waits for the hotkey and opens or closes
-// the grid, reads the tray again every 2 s while the grid is open, and passes clicks on
-// the grid to the real tray icons. The app ends with Exit in the grid's right-click menu.
+// The running app. It has no main window: it shows a floating button on each secondary
+// monitor, opens or closes the grid when the hotkey is pressed or a button is clicked,
+// reads the tray again every 2 s while the grid is open, and passes clicks on the grid
+// to the real tray icons. The app ends with Exit in the right-click menu of a button or
+// of the grid.
 internal sealed class App : ApplicationContext
 {
     // Alt and the key left of 1: one hand, two neighbouring keys (owner's choice).
@@ -19,41 +21,52 @@ internal sealed class App : ApplicationContext
     private readonly TrayReader reader = new();
     // Runs only while the grid is open (decided in To do 2: re-read everything every 2 s).
     private readonly Timer refreshTimer = new() { Interval = 2000 };
+    // Where the user dragged the buttons and the grid; saved at each drag.
+    private readonly Settings settings;
+    // One floating button per secondary monitor; made again when the monitors change.
+    private readonly List<FloatingButton> buttons = [];
     // The open grid, or null.
     private GridForm? grid;
-    // Where the user last dragged the grid on each monitor, by the monitor's device name
-    // (e.g. \\.\DISPLAY5). Kept while the app runs.
-    private readonly Dictionary<string, Point> gridPlaces = new();
     // True while the grid waits for its tray read, so a second press doesn't open two.
     private bool opening;
 
-    public App()
+    public App(Settings settings)
     {
+        this.settings = settings;
         // Oemtilde: the ` and ~ key on a US keyboard.
         HotkeyRegistered = hotkey.Register(Hotkey.Alt, Keys.Oemtilde);
-        hotkey.Pressed += OpenOrCloseGrid;
+        // The monitor the mouse is on at the press, not when the read is done.
+        hotkey.Pressed += () => OpenOrCloseGrid(Screen.FromPoint(Cursor.Position));
         refreshTimer.Tick += (_, _) => RefreshGrid();
 
         // A first read at start: it warms up UI Automation (the first read is the
         // slowest), and if Explorer hasn't created the overflow window yet, the one
-        // flash of the flyout happens now instead of when the grid opens. Not when the
-        // app is about to quit because the hotkey is taken.
+        // flash of the flyout happens now instead of when the grid opens. No read and no
+        // buttons when the app is about to quit because the hotkey is taken.
         if (HotkeyRegistered)
         {
             _ = reader.ReadAsync(openIfMissing: true);
+            MakeButtons();
+            SystemEvents.DisplaySettingsChanged += OnMonitorsChanged;
         }
     }
 
     // False if another program already uses the hotkey.
     public bool HotkeyRegistered { get; }
 
+    // Opens the grid on this monitor, or closes it if it is open there. Open on another
+    // monitor, it moves here: closed there, opened here (owner's choice).
     // async void: an event handler, so nothing waits for it.
-    private async void OpenOrCloseGrid()
+    private async void OpenOrCloseGrid(Screen monitor)
     {
         if (grid != null)
         {
+            var sameMonitor = grid.Monitor.DeviceName == monitor.DeviceName;
             grid.Close();
-            return;
+            if (sameMonitor)
+            {
+                return;
+            }
         }
         if (opening)
         {
@@ -62,14 +75,29 @@ internal sealed class App : ApplicationContext
         opening = true;
         try
         {
-            // The monitor the mouse is on now, not when the read is done.
-            var monitor = Screen.FromPoint(Cursor.Position);
             // Read first, then show, so the grid never shows stale icons (owner's choice).
             // openIfMissing: Explorer may have restarted since the last read.
             var state = await reader.ReadAsync(openIfMissing: true);
-            grid = new GridForm(state, monitor, gridPlaces.TryGetValue(monitor.DeviceName, out var place) ? place : null);
+            // The monitor's button, if it has one: the grid and the button stay together, so
+            // the button alone says where the grid is on its monitor (owner's choice). Only
+            // on a monitor without a button (the main one) does the grid keep a place of its
+            // own, where it was last dragged.
+            var button = buttons.Find(b => b.Monitor.DeviceName == monitor.DeviceName);
+            grid = new GridForm(state, monitor, button == null ? settings.GridPlace(monitor) : null, button);
             grid.FormClosed += (_, _) => ForgetGrid();
             grid.IconClicked += ClickIcon;
+            grid.Dragged += place =>
+            {
+                if (button == null)
+                {
+                    settings.SetGridPlace(monitor, place);
+                }
+                else
+                {
+                    // The button moved along with the grid.
+                    settings.SetButtonPlace(monitor, button.Location);
+                }
+            };
             grid.Show();
             grid.Activate();
             refreshTimer.Start();
@@ -80,16 +108,50 @@ internal sealed class App : ApplicationContext
         }
     }
 
-    // After the grid closed: keep where the user dragged it, for the next time it opens on
-    // that monitor.
     private void ForgetGrid()
     {
         refreshTimer.Stop();
-        if (grid?.UserPlace is Point place)
-        {
-            gridPlaces[grid.Monitor.DeviceName] = place;
-        }
         grid = null;
+    }
+
+    // One floating button on each monitor but the main one (the main taskbar has the real
+    // tray), where the user last dragged it there.
+    private void MakeButtons()
+    {
+        foreach (var monitor in Screen.AllScreens)
+        {
+            if (monitor.Primary)
+            {
+                continue;
+            }
+            var button = new FloatingButton(monitor, settings.ButtonPlace(monitor));
+            button.Clicked += () => OpenOrCloseGrid(monitor);
+            button.Dragged += place => settings.SetButtonPlace(monitor, place);
+            // An open grid on this monitor goes along with the button while it is dragged.
+            button.Moving += () =>
+            {
+                if (grid != null && grid.Monitor.DeviceName == monitor.DeviceName)
+                {
+                    grid.FollowButton();
+                }
+            };
+            buttons.Add(button);
+            button.Show();
+        }
+    }
+
+    // Windows raises this when a monitor is plugged in or out, or its resolution or place
+    // changes. The buttons are made again for the monitors there are now, and an open
+    // grid closes: each was laid out for its monitor as it was.
+    private void OnMonitorsChanged(object? sender, EventArgs e)
+    {
+        grid?.Close();
+        foreach (var button in buttons)
+        {
+            button.Close();
+        }
+        buttons.Clear();
+        MakeButtons();
     }
 
     // Reads the tray again and shows it in the open grid. Never opens the flyout, so a
@@ -133,6 +195,12 @@ internal sealed class App : ApplicationContext
     {
         if (disposing)
         {
+            // A static event: it would keep the app alive and call it after it is gone.
+            SystemEvents.DisplaySettingsChanged -= OnMonitorsChanged;
+            foreach (var button in buttons)
+            {
+                button.Dispose();
+            }
             refreshTimer.Dispose();
             hotkey.Dispose();
         }

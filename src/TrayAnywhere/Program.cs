@@ -29,8 +29,24 @@ internal static class Program
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
+        // Windows' "monitors changed" event (see App) calls the app through the UI thread's
+        // synchronization context as it is when the app subscribes, or else on a thread of
+        // its own. WinForms makes that context with the first window or in Application.Run,
+        // and with no secondary monitor the app has no window yet, so it is made here.
+        SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
 
-        using var app = new App();
+        var settingsPath = Settings.DefaultPath;
+        var settings = Settings.Load(settingsPath, out var settingsProblem);
+        // Said before the app starts: once it runs, its grid and buttons (always on top)
+        // could open over this message while it waits for an answer.
+        if (settingsProblem != null)
+        {
+            MessageBox.Show(
+                $"tray-anywhere couldn't read its settings file:\n{settingsPath}\n\n{settingsProblem}\n\n" +
+                "It starts with the buttons and the grid in their usual places, and won't change the file until it can read it.",
+                "tray-anywhere");
+        }
+        using var app = new App(settings);
         if (!app.HotkeyRegistered)
         {
             MessageBox.Show(

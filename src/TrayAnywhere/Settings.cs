@@ -1,0 +1,105 @@
+using System;
+using System.Collections.Generic;
+using System.Drawing;
+using System.IO;
+using System.Text.Json;
+using System.Windows.Forms;
+
+namespace TrayAnywhere;
+
+// A place on a monitor: a window's top-left corner, in physical pixels from the top-left
+// corner of the monitor. From the monitor's corner, so moving the monitors around in
+// Windows' Display settings keeps the places.
+internal sealed record Offset(int X, int Y);
+
+// The settings file (%APPDATA%\tray-anywhere\settings.json): where the user dragged each
+// floating button and the grid, per monitor. Each drag saves it at once.
+internal sealed class Settings
+{
+    // By the monitor's name without "\\.\" (e.g. DISPLAY5). Windows can give a monitor a
+    // new name after it is plugged in again; its places are then forgotten.
+    public Dictionary<string, Offset> ButtonPlaces { get; set; } = new();
+    public Dictionary<string, Offset> GridPlaces { get; set; } = new();
+
+    public static string DefaultPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tray-anywhere", "settings.json");
+
+    // Indented, so the file is easy to read. A missing list (null) is a broken file, not
+    // an empty list.
+    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true, RespectNullableAnnotations = true };
+
+    // The file these settings were read from and are saved to.
+    private string path = "";
+    // False when the file exists but couldn't be read: the app then never writes over it,
+    // so a hand edit with a mistake in it isn't lost.
+    private bool mayWrite = true;
+
+    // Reads the settings, or the defaults if there is no file yet. problem: why an
+    // existing file couldn't be read, or null.
+    public static Settings Load(string path, out string? problem)
+    {
+        problem = null;
+        Settings? settings = null;
+        try
+        {
+            if (File.Exists(path))
+            {
+                settings = JsonSerializer.Deserialize<Settings>(File.ReadAllText(path), Options);
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        {
+            problem = e.Message;
+        }
+        // A file holding only "null" reads as null: the defaults.
+        settings ??= new Settings();
+        settings.path = path;
+        settings.mayWrite = problem == null;
+        return settings;
+    }
+
+    public Point? ButtonPlace(Screen monitor) => PlaceIn(ButtonPlaces, monitor);
+
+    public Point? GridPlace(Screen monitor) => PlaceIn(GridPlaces, monitor);
+
+    public void SetButtonPlace(Screen monitor, Point place) => SetPlace(ButtonPlaces, monitor, place);
+
+    public void SetGridPlace(Screen monitor, Point place) => SetPlace(GridPlaces, monitor, place);
+
+    // The saved place on this monitor, in screen pixels, or null if there is none. A place
+    // written as null in the file also counts as none.
+    private static Point? PlaceIn(Dictionary<string, Offset> places, Screen monitor) =>
+        places.GetValueOrDefault(Key(monitor)) is Offset offset
+            ? new Point(monitor.Bounds.X + offset.X, monitor.Bounds.Y + offset.Y)
+            : null;
+
+    private void SetPlace(Dictionary<string, Offset> places, Screen monitor, Point place)
+    {
+        places[Key(monitor)] = new Offset(place.X - monitor.Bounds.X, place.Y - monitor.Bounds.Y);
+        Save();
+    }
+
+    // "\\.\DISPLAY5" becomes "DISPLAY5": the backslashes would be doubled in the file.
+    private static string Key(Screen monitor) => monitor.DeviceName.TrimStart('\\', '.');
+
+    private void Save()
+    {
+        if (!mayWrite)
+        {
+            return;
+        }
+        try
+        {
+            new FileInfo(path).Directory?.Create();
+            // Written to a new file, then put in place of the old one, so a crash or a
+            // full disk halfway through leaves the old file whole.
+            var temp = path + ".tmp";
+            File.WriteAllText(temp, JsonSerializer.Serialize(this, Options));
+            File.Move(temp, path, overwrite: true);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Only a place is lost; the app goes on and tries again at the next drag.
+        }
+    }
+}

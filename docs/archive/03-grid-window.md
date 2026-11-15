@@ -36,7 +36,11 @@ Choices (owner, 2026-11-14): docs/decisions.md "The grid app". Three steps, one 
   - Fixed while testing: Steam showed no menu until a forwarded click let other programs come to the front (decisions.md); the grid lost "always on top" when opened by the hotkey, so `GridForm.KeepOnTop` sets it again after it shows and at each refresh (docs/research/winforms-dpi.md).
   - Steam's menu opens off to the side on the 150 % monitor: Steam's own bug; a README limitation and To do 7.
   - Step C must know: a window opened by a click on a floating button may also lose "always on top" (only the hotkey path was traced); check the buttons' own flag the same way. Review notes left open: a re-layout during a drag can make the grid jump; after a re-layout the keyboard focus and hover border are gone until the mouse moves.
-- [ ] Step C (next): the floating buttons (one per secondary monitor, drag, saved position, click opens the grid next to it or where it was last dragged on that monitor, right-click Exit, rebuilt when monitors change) and settings.json with the button and grid positions (~200 lines).
+- [x] Step C: the floating buttons and settings.json (src/TrayAnywhere: FloatingButton, Settings, TopWindow; ~570 lines with comments, planned ~300). Owner tested it, 2026-11-14.
+  - One button per secondary monitor (dark, ^ arrow, Exit on right-click, rebuilt when monitors change); a click or Alt+` on another monitor moves the grid there. Choices: docs/decisions.md "Floating buttons and settings.json".
+  - Changed after the owner's tests: the button alone says where the grid is on its monitor. The grid always opens at it, where its arrow points (v and below in the monitor's top half), and the two move together while either is dragged. The grid keeps a dragged place of its own only on the main monitor.
+  - Checked with window probes (docs/research/winforms-dpi.md "the floating buttons"): sizes, on-top flags, placement; a title-bar drag can be faked with WM_ENTERSIZEMOVE, SetWindowPos and WM_EXITSIZEMOVE (useful for To do 4).
+  - Review notes left open: a monitor change during the 150 ms read opens the grid for the old monitor; a scaling or taskbar-size change sends no "display changed" event, so the buttons keep their old size and limits until a restart (a Someday to-do if it happens); the grid's visible frame is ~7 px inside its window rectangle (estimated), so its edge sits slightly left of the button's.
 
 ## Test
 - Claude: build and format checks; the GUI test once To do 4 exists.

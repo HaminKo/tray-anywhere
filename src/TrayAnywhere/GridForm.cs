@@ -11,10 +11,10 @@ using Tray;
 namespace TrayAnywhere;
 
 // The grid: the app icons in "Pinned" (shown on the taskbar) and "Overflow" (behind the
-// arrow), with each icon's tooltip text on hover. It stays on top until its X, Escape or
-// the hotkey closes it, and can be dragged by its title bar within its monitor (owner's
-// choice). A new grid is made each time it opens, laid out at the scale of the monitor
-// it opens on.
+// arrow), with each icon's tooltip text on hover. It stays on top until its X, Escape,
+// the hotkey or its floating button closes it, and can be dragged by its title bar within
+// its monitor (owner's choice). A new grid is made each time it opens, laid out at the
+// scale of the monitor it opens on.
 internal sealed class GridForm : Form
 {
     // Sizes at 100 % scaling, in pixels. The icon is the tray's own size; the tile is the
@@ -30,6 +30,8 @@ internal sealed class GridForm : Form
     // Inside the grid's edge, and between the grid and the screen's edge.
     private const int EdgeSpace = 8;
     private const int ScreenGap = 12;
+    // Between the grid and the floating button it opens next to.
+    private const int ButtonGap = 8;
 
     // Dark, like the taskbar here: its icon pictures carry its dark background (owner's choice).
     private static readonly Color Background = Color.FromArgb(32, 32, 32);
@@ -45,6 +47,13 @@ internal sealed class GridForm : Form
     private readonly ToolTip toolTip = new() { ShowAlways = true };
     // The grid's monitor without its taskbar, in physical pixels; the grid stays inside it.
     private readonly Rectangle area;
+    // The floating button on the grid's monitor, or null if it has none (the main one).
+    private readonly FloatingButton? button;
+    // Where the user last dragged the grid, or null. Only on a monitor without a button:
+    // elsewhere the grid is always next to its button (owner's choice).
+    private Point? userPlace;
+    // True while the user drags the grid by its title bar.
+    private bool beingDragged;
     // The size of the grid without its title bar.
     private Size contentSize;
     // The section titles and the problem line. The grid draws them itself instead of
@@ -56,14 +65,16 @@ internal sealed class GridForm : Form
     // The read the grid shows now.
     private TrayState shown = TrayState.Empty;
 
-    // state: what to show. monitor: the monitor to open on (the mouse's). place: where
-    // the user last dragged the grid on that monitor, or null for the bottom-right corner.
-    public GridForm(TrayState state, Screen monitor, Point? place)
+    // state: what to show. monitor: the monitor to open on. place: where the user last
+    // dragged the grid on that monitor, or null. button: the floating button there, or
+    // null. Without a place the grid opens next to the button, or else in the corner.
+    public GridForm(TrayState state, Screen monitor, Point? place, FloatingButton? button)
     {
         Monitor = monitor;
         scale = Dpi.ScaleOf(monitor);
         area = monitor.WorkingArea;
-        UserPlace = place;
+        userPlace = place;
+        this.button = button;
         // Sizes in pixels, so the text is the same size on every monitor at its scale.
         titleFont = new Font("Segoe UI Semibold", Px(TextHeight), GraphicsUnit.Pixel);
         textFont = new Font("Segoe UI", Px(TextHeight), GraphicsUnit.Pixel);
@@ -96,11 +107,12 @@ internal sealed class GridForm : Form
     // The monitor the grid was opened and laid out for.
     public Screen Monitor { get; }
 
-    // Where the user last dragged the grid, or null while it is in its default corner.
-    public Point? UserPlace { get; private set; }
-
     // A click on a tile: its tray icon, and the mouse button (Left or Right).
     public event Action<TrayItem, MouseButtons>? IconClicked;
+
+    // The user dragged the grid to this place (its top-left corner). On a monitor with a
+    // button, the button has moved along.
+    public event Action<Point>? Dragged;
 
     // Where the grid was when the user pressed on its title bar.
     private Point dragStart;
@@ -120,11 +132,12 @@ internal sealed class GridForm : Form
     // Shows a newer read of the tray. With the same number of icons in each section and
     // the same problem line, the tiles stay and change only where an icon's picture or
     // tooltip did, so a tooltip being read or the hover border doesn't go away at every
-    // refresh. Otherwise the grid is laid out again, on the same monitor: in its corner it
-    // grows up and to the left, once dragged it keeps its top-left corner.
+    // refresh. Otherwise the grid is laid out again, on the same monitor: in its corner or
+    // above its button it grows up and to the left, below its button down and to the left;
+    // once dragged it keeps its top-left corner.
     public void ShowState(TrayState state)
     {
-        KeepOnTop();
+        TopWindow.KeepOnTop(this);
         if (state.Pinned.Count != shown.Pinned.Count || state.Overflow.Count != shown.Overflow.Count || state.Problem != shown.Problem)
         {
             LayOut(state);
@@ -161,14 +174,42 @@ internal sealed class GridForm : Form
         tile.Item = item;
     }
 
-    // Where the user last dragged the grid, or else the bottom-right corner of the
-    // monitor's free area, just above its taskbar, where Windows' own flyout opens.
-    // Inside the free area either way, in case the grid has grown since.
+    // Where the user last dragged the grid; or else next to the floating button; or else
+    // the bottom-right corner of the monitor's free area, just above its taskbar, where
+    // Windows' own flyout opens. Inside the free area always, in case the grid has grown.
     private Point Place()
     {
         var corner = new Point(area.Right - Width - Px(ScreenGap), area.Bottom - Height - Px(ScreenGap));
-        return KeepInside(UserPlace ?? corner, Size);
+        return TopWindow.KeepInside(area, userPlace ?? NextToButton() ?? corner, Size);
     }
+
+    // Next to the floating button, where its arrow points: right edges lined up, just
+    // above it, or just below it when the button is in the top half of the monitor.
+    private Point? NextToButton()
+    {
+        if (button == null)
+        {
+            return null;
+        }
+        var b = button.Bounds;
+        var top = button.OpensDown ? b.Bottom + Px(ButtonGap) : b.Top - Px(ButtonGap) - Height;
+        return new Point(b.Right - Width, top);
+    }
+
+    // Where the button goes while the user drags the grid: the reverse of NextToButton.
+    // Right edges lined up, just below the grid; or just above it when below would be in
+    // the top half of the monitor, where the button opens the grid downwards.
+    private Point ButtonPlace(FloatingButton b)
+    {
+        var below = new Rectangle(Right - b.Width, Bottom + Px(ButtonGap), b.Width, b.Height);
+        var place = FloatingButton.OpensDownAt(below, area)
+            ? new Point(below.X, Top - Px(ButtonGap) - b.Height)
+            : below.Location;
+        return TopWindow.KeepInside(area, place, b.Size);
+    }
+
+    // The user is dragging the button: the grid moves along, next to it.
+    public void FollowButton() => Location = Place();
 
     // Windows raises these when the user presses on the title bar and lets go; only a
     // press that moved the grid makes a new place (a click to focus it doesn't).
@@ -176,15 +217,39 @@ internal sealed class GridForm : Form
     {
         base.OnResizeBegin(e);
         dragStart = Location;
+        beingDragged = true;
+    }
+
+    // While the user drags the grid, its button moves along (owner's choice: the button
+    // and the grid stay together on their monitor).
+    protected override void OnLocationChanged(EventArgs e)
+    {
+        base.OnLocationChanged(e);
+        if (beingDragged && button != null)
+        {
+            button.Location = ButtonPlace(button);
+        }
     }
 
     protected override void OnResizeEnd(EventArgs e)
     {
         base.OnResizeEnd(e);
-        if (Location != dragStart)
+        beingDragged = false;
+        if (Location == dragStart)
         {
-            UserPlace = Location;
+            return;
         }
+        if (button != null)
+        {
+            // Next to its button again: where the button had no room (at an edge of the
+            // monitor), the grid moves a little to make room for it.
+            Location = Place();
+        }
+        else
+        {
+            userPlace = Location;
+        }
+        Dragged?.Invoke(Location);
     }
 
     protected override void WndProc(ref Message m)
@@ -195,7 +260,7 @@ internal sealed class GridForm : Form
         {
             var r = Marshal.PtrToStructure<Win32Rect>(m.LParam);
             var size = new Size(r.Right - r.Left, r.Bottom - r.Top);
-            var place = KeepInside(new Point(r.Left, r.Top), size);
+            var place = TopWindow.KeepInside(area, new Point(r.Left, r.Top), size);
             r = new Win32Rect { Left = place.X, Top = place.Y, Right = place.X + size.Width, Bottom = place.Y + size.Height };
             Marshal.StructureToPtr(r, m.LParam, false);
             // Handled: Windows moves the window to the changed rectangle.
@@ -204,12 +269,6 @@ internal sealed class GridForm : Form
         }
         base.WndProc(ref m);
     }
-
-    // The point nearest to the given place where a window of this size is fully inside
-    // the monitor's free area.
-    private Point KeepInside(Point place, Size size) => new(
-        Math.Max(area.Left, Math.Min(place.X, area.Right - size.Width)),
-        Math.Max(area.Top, Math.Min(place.Y, area.Bottom - size.Height)));
 
     // Makes the tiles and texts for this read, in place of any made before, and works out
     // the grid's size (contentSize). The caller sets the window's size.
@@ -357,18 +416,7 @@ internal sealed class GridForm : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
-        KeepOnTop();
-    }
-
-    // Sets the always-on-top flag again, only if it is gone: setting it also lifts the grid
-    // above other always-on-top windows, such as notification popups in the same corner.
-    // Not through TopMost, which would also activate the grid and take the keyboard focus.
-    private void KeepOnTop()
-    {
-        if ((GetWindowLong(Handle, GwlExStyle) & WsExTopmost) == 0)
-        {
-            SetWindowPos(Handle, HwndTopmost, 0, 0, 0, 0, SwpNoSize | SwpNoMove | SwpNoActivate);
-        }
+        TopWindow.KeepOnTop(this);
     }
 
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
@@ -406,12 +454,6 @@ internal sealed class GridForm : Form
     private const TextFormatFlags ProblemFlags = TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix;
     private const int WmMoving = 0x0216;
     private const int DwmUseImmersiveDarkMode = 20;
-    private const int GwlExStyle = -20;
-    private const int WsExTopmost = 0x8;
-    private static readonly IntPtr HwndTopmost = new(-1);
-    private const uint SwpNoSize = 0x1;
-    private const uint SwpNoMove = 0x2;
-    private const uint SwpNoActivate = 0x10;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct Win32Rect
@@ -421,12 +463,6 @@ internal sealed class GridForm : Form
 
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
-
-    [DllImport("user32.dll")]
-    private static extern int GetWindowLong(IntPtr window, int index);
-
-    [DllImport("user32.dll")]
-    private static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
 
     // A text the grid draws itself, in this rectangle, with this font and colour.
     private sealed record Caption(string Text, Font Font, Color Color, Rectangle Bounds, TextFormatFlags Flags);
