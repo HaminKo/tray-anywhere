@@ -9,6 +9,7 @@ namespace GuiTest;
 internal static class Win32
 {
     public const int WmContextMenu = 0x007B;
+    public const int WmNcActivate = 0x0086;
     public const int WmKeyDown = 0x0100;
     public const int WmKeyUp = 0x0101;
     public const int WmSysCommand = 0x0112;
@@ -30,6 +31,8 @@ internal static class Win32
     public const uint SwpNoActivate = 0x10;
     // The parent of message-only windows, such as the app's hotkey window.
     public static readonly IntPtr MessageOnlyParent = new(-3);
+    // For DwmGetWindowAttribute: the window's frame as it shows, without the invisible border.
+    public const int DwmwaExtendedFrameBounds = 9;
 
     // A monitor's scaling: 1.0 at 100 %, 1.5 at 150 %. The same way as the app's Dpi.cs,
     // written again here so the test doesn't share a mistake with the app.
@@ -77,6 +80,9 @@ internal static class Win32
 
     [DllImport("user32.dll")]
     public static extern bool SetForegroundWindow(IntPtr window);
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out Rect value, int size);
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromPoint(Point point, uint flags);

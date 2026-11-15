@@ -1,16 +1,15 @@
 ## Where we are
-- Now: To do 4, step B (screenshots)
-- Next: To do 5
+- Now: To do 5 (autostart)
+- Next: none
 - Updated: 2026-11-14
 
 ## To do
 Next number: 10. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
-- To do 4: GUI test and screenshots (medium; user 2026-11-14): docs/todo/04-gui-test.md
+- To do 5: Start with Windows, and the README's run and autostart steps (small; user 2026-11-14): docs/todo/05-autostart.md
 
 ### Bugs me
-- To do 5: Start with Windows, and the README's run and autostart steps (small; user 2026-11-14): docs/todo/05-autostart.md
 
 ### Someday
 - To do 6: When no icons are hidden, read an empty overflow instead of failing (small; user 2026-11-14): docs/todo/06-no-hidden-icons.md

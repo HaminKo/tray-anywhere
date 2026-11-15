@@ -1,5 +1,6 @@
 using System;
 using System.Drawing;
+using System.Runtime.InteropServices;
 using System.Windows.Automation;
 using static GuiTest.Win32;
 
@@ -32,6 +33,21 @@ internal sealed class AppWindow
         get
         {
             GetWindowRect(Handle, out var r);
+            return Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
+        }
+    }
+
+    // The window as it shows on screen: for the grid a few pixels inside Bounds, without
+    // the invisible border Windows puts around a frame for resizing. The same as Bounds
+    // for a floating button, which has no frame.
+    public Rectangle VisibleBounds
+    {
+        get
+        {
+            if (DwmGetWindowAttribute(Handle, DwmwaExtendedFrameBounds, out var r, Marshal.SizeOf<Rect>()) != 0)
+            {
+                throw new CheckFailed("Windows didn't give the window's visible frame");
+            }
             return Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
         }
     }

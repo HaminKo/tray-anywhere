@@ -40,6 +40,8 @@ A GUI test starts the app with a settings file of its own, works its buttons and
 dotnet run --project src/GuiTest
 ```
 
+Add `-- screenshots` to save a picture of the popup on each secondary monitor to a temp folder.
+
 ## Known limitations
 - Some apps open their right-click menu next to the real tray on the main monitor, not at the mouse. tray-anywhere can't change that.
 - Steam's menu can open away from the mouse, even off-screen, on a monitor with other scaling than 100 %. Use the popup on another monitor for Steam, or on the left part of that one.

@@ -18,7 +18,8 @@ internal sealed record SettingsFile(Dictionary<string, Offset> ButtonPlaces, Dic
 internal sealed record Offset(int X, int Y);
 
 // The GUI test: starts the real app with a settings file of its own, works it as a user
-// would, and checks what it shows. It works the app through messages to the app's own
+// would, and checks what it shows. With "screenshots" it takes pictures of the grid
+// instead (Screenshots.cs). It works the app through messages to the app's own
 // windows and UI Automation, never the real mouse or keyboard, so the user can keep
 // working meanwhile. Exit code 0 when every check passes; at the first that fails it
 // stops, with exit code 1. The sizes, the settings file's form and the monitor names are
@@ -31,12 +32,20 @@ internal static class Program
     private const int ButtonGap = 8;
     private const int ScreenGap = 12;
 
+    // No arguments: the test. "screenshots", optionally with a monitor's name (DISPLAY5):
+    // the pictures, of each secondary monitor or of that one.
     [STAThread]
-    private static int Main()
+    private static int Main(string[] args)
     {
         // Physical pixels, as the app works in. Otherwise Windows would scale what this
         // program sees on a monitor with other scaling than the main one.
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
+        var screenshots = args.Length > 0 && args[0].Equals("screenshots", StringComparison.OrdinalIgnoreCase);
+        if (args.Length > (screenshots ? 2 : 0))
+        {
+            Console.WriteLine("Use: dotnet run --project src/GuiTest [-- screenshots [DISPLAYn]]");
+            return 1;
+        }
         // The app runs one copy at a time (its mutex, in src/TrayAnywhere/Program.cs).
         if (Mutex.TryOpenExisting(@"Local\tray-anywhere", out var running))
         {
@@ -50,7 +59,18 @@ internal static class Program
             Console.WriteLine("The GUI test needs a secondary monitor: the floating buttons are only there.");
             return 1;
         }
-        // The one file the test writes: the app's settings for the test, never the user's.
+        if (args.Length == 2)
+        {
+            var names = string.Join(", ", monitors.Select(Key));
+            monitors = monitors.FindAll(monitor => Key(monitor).Equals(args[1], StringComparison.OrdinalIgnoreCase));
+            if (monitors.Count == 0)
+            {
+                Console.WriteLine($"No floating button on {args[1]}: the secondary monitors are {names}.");
+                return 1;
+            }
+        }
+        // The test's folder in the temp folder. Besides the screenshots, the one file
+        // written: the app's settings for the test, never the user's.
         var folder = Path.Combine(Path.GetTempPath(), "tray-anywhere-gui");
         Directory.CreateDirectory(folder);
         var settingsPath = Path.Combine(folder, "settings.json");
@@ -58,13 +78,20 @@ internal static class Program
         var watch = Stopwatch.StartNew();
         try
         {
-            var first = monitors[0];
-            // The first monitor's button in the top half of its monitor, as if the user
-            // had dragged it there: its grid opens below it.
-            var savedPlace = new Point(first.WorkingArea.X + first.WorkingArea.Width / 2, first.WorkingArea.Y + Px(first, 100));
-            WriteSettings(settingsPath, first, savedPlace);
-            var draggedPlace = FirstRun(settingsPath, monitors, savedPlace);
-            AfterRestart(settingsPath, monitors, draggedPlace);
+            if (screenshots)
+            {
+                Screenshots.Take(folder, settingsPath, monitors);
+            }
+            else
+            {
+                var first = monitors[0];
+                // The first monitor's button in the top half of its monitor, as if the user
+                // had dragged it there: its grid opens below it.
+                var savedPlace = new Point(first.WorkingArea.X + first.WorkingArea.Width / 2, first.WorkingArea.Y + Px(first, 100));
+                WriteSettings(settingsPath, new(new() { [Key(first)] = ToOffset(first, savedPlace) }, new()));
+                var draggedPlace = FirstRun(settingsPath, monitors, savedPlace);
+                AfterRestart(settingsPath, monitors, draggedPlace);
+            }
         }
         catch (CheckFailed e)
         {
@@ -77,7 +104,7 @@ internal static class Program
             Console.WriteLine($"FAILED, an error in the test: {e}");
             return 1;
         }
-        Console.WriteLine($"All checks passed in {watch.Elapsed.TotalSeconds:0.0} s.");
+        Console.WriteLine($"{(screenshots ? "Done" : "All checks passed")} in {watch.Elapsed.TotalSeconds:0.0} s.");
         return 0;
     }
 
@@ -271,14 +298,14 @@ internal static class Program
 
     // Waits for the grid to open on this monitor, then gives the front back to the user's
     // window if the grid took it.
-    private static AppWindow WaitForGrid(TestedApp app, Screen monitor, string what)
+    internal static AppWindow WaitForGrid(TestedApp app, Screen monitor, string what)
     {
         var grid = WaitFor(what, () => app.Grid() is AppWindow open && IsOn(open, monitor) ? open : null);
         app.GiveFrontBack();
         return grid;
     }
 
-    private static bool IsOn(AppWindow window, Screen monitor) =>
+    internal static bool IsOn(AppWindow window, Screen monitor) =>
         Screen.FromRectangle(window.Bounds).DeviceName == monitor.DeviceName;
 
     // Where a window of this size starts on a monitor: the bottom-right corner of its free
@@ -294,15 +321,12 @@ internal static class Program
     private static int Px(Screen monitor, int size) => (int)Math.Round(size * Win32.ScaleOf(monitor));
 
     // The monitor's name as the settings file has it: "\\.\DISPLAY5" becomes "DISPLAY5".
-    private static string Key(Screen monitor) => monitor.DeviceName.TrimStart('\\', '.');
+    internal static string Key(Screen monitor) => monitor.DeviceName.TrimStart('\\', '.');
 
     private static Offset ToOffset(Screen monitor, Point place) => new(place.X - monitor.Bounds.X, place.Y - monitor.Bounds.Y);
 
-    private static void WriteSettings(string path, Screen monitor, Point buttonPlace)
-    {
-        var settings = new SettingsFile(new() { [Key(monitor)] = ToOffset(monitor, buttonPlace) }, new());
+    internal static void WriteSettings(string path, SettingsFile settings) =>
         File.WriteAllText(path, JsonSerializer.Serialize(settings));
-    }
 
     private static SettingsFile ReadSettings(string path) =>
         JsonSerializer.Deserialize<SettingsFile>(File.ReadAllText(path)) ?? throw new CheckFailed("settings.json holds null");

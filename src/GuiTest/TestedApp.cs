@@ -86,7 +86,9 @@ internal sealed class TestedApp : IDisposable
     private static List<AppWindow> Find(AutomationElement parent, TreeScope scope, Condition condition) =>
         parent.FindAll(scope, condition).Cast<AutomationElement>().Select(element => new AppWindow(element)).ToList();
 
-    // Ends the app if a failed check left it running.
+    // Ends the app if it is still running: after a failed check, or when the test or the
+    // screenshots are done with it. The app has nothing to save on exit (each drag saves
+    // settings.json at once).
     public void Dispose()
     {
         if (!process.HasExited)
