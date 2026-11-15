@@ -9,9 +9,9 @@ namespace TrayAnywhere;
 
 // The running app. It has no main window: it shows a floating button on each secondary
 // monitor, opens or closes the grid when the hotkey is pressed or a button is clicked,
-// reads the tray again every 2 s while the grid is open, and passes clicks on the grid
-// to the real tray icons. The app ends with Exit in the right-click menu of a button or
-// of the grid.
+// reads the tray again while the grid is open (every 2 s while it is used, every 10 s
+// while not), and passes clicks on the grid to the real tray icons. The app ends with
+// Exit in the right-click menu of a button or of the grid.
 internal sealed class App : ApplicationContext
 {
     // Alt and the key left of 1: one hand, two neighbouring keys (owner's choice).
@@ -19,8 +19,16 @@ internal sealed class App : ApplicationContext
 
     private readonly Hotkey hotkey = new();
     private readonly TrayReader reader = new();
-    // Runs only while the grid is open (decided in To do 2: re-read everything every 2 s).
-    private readonly Timer refreshTimer = new() { Interval = 2000 };
+    // How old the grid's icons may get before the tray is read again, in ms: while the
+    // grid is used (GridForm.InUse), and while it isn't (owner's choice, To do 8: an open
+    // grid nobody looks at costs less, and catches up as soon as the mouse comes).
+    private const long InUseRefresh = 2000;
+    private const long UnusedRefresh = 10000;
+    // Runs only while the grid is open. It only checks whether a read is due
+    // (RefreshIfDue), often enough that the mouse coming to the grid brings one at once.
+    private readonly Timer refreshTimer = new() { Interval = 500 };
+    // When the read the grid shows started, in ms (Environment.TickCount64).
+    private long lastRead;
     // Where the user dragged the buttons and the grid; saved at each drag.
     private readonly Settings settings;
     // "Start with Windows" in every window's right-click menu.
@@ -40,7 +48,7 @@ internal sealed class App : ApplicationContext
         HotkeyRegistered = hotkey.Register(Hotkey.Alt, Keys.Oemtilde);
         // The monitor the mouse is on at the press, not when the read is done.
         hotkey.Pressed += () => OpenOrCloseGrid(Screen.FromPoint(Cursor.Position));
-        refreshTimer.Tick += (_, _) => RefreshGrid();
+        refreshTimer.Tick += (_, _) => RefreshIfDue();
 
         // A first read at start: it warms up UI Automation (the first read is the
         // slowest), and if Explorer hasn't created the overflow window yet, the one
@@ -80,6 +88,7 @@ internal sealed class App : ApplicationContext
         {
             // Read first, then show, so the grid never shows stale icons (owner's choice).
             // openIfMissing: Explorer may have restarted since the last read.
+            lastRead = Environment.TickCount64;
             var state = await reader.ReadAsync(openIfMissing: true);
             // The monitor's button, if it has one: the grid and the button stay together, so
             // the button alone says where the grid is on its monitor (owner's choice). Only
@@ -157,11 +166,28 @@ internal sealed class App : ApplicationContext
         MakeButtons();
     }
 
+    // Reads the tray again if the grid's icons are older than the grid's use allows. So
+    // the mouse coming onto a grid left unused brings a read within 0.5 s, unless the last
+    // one is under 2 s old anyway.
+    private void RefreshIfDue()
+    {
+        if (grid == null)
+        {
+            return;
+        }
+        var maxAge = grid.InUse ? InUseRefresh : UnusedRefresh;
+        if (Environment.TickCount64 - lastRead >= maxAge)
+        {
+            RefreshGrid();
+        }
+    }
+
     // Reads the tray again and shows it in the open grid. Never opens the flyout, so a
-    // failing read can't make it flash every 2 s; a part that fails keeps its last icons.
-    // A tick during a slow read gets that same read, so reads don't pile up.
+    // failing read can't make it flash at every refresh; a part that fails keeps its last
+    // icons. A call during a slow read gets that same read, so reads don't pile up.
     private async void RefreshGrid()
     {
+        lastRead = Environment.TickCount64;
         var state = await reader.ReadAsync(openIfMissing: false);
         // The grid may have closed during the read.
         grid?.ShowState(state);

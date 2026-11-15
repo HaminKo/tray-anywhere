@@ -12,7 +12,7 @@ The GUI test (src/GuiTest, To do 4) starts the real app and works it through mes
 - After the Exit fix below: 42 of 44 runs passed. Two failed once each, neither again:
   - "the grid stays open after clicks on its icons: it closed". That check then asked UI Automation for the grid once, without the retries the waits have; possibly a missed lookup (not shown: in the next 8 runs UI Automation found the grid every time, and the window handle said open). It now checks the grid's window handle (`IsWindowVisible`).
   - "a dragged grid takes its button along, below it: not within 5 s". The expected button place was worked out from the grid's size before the drag; if another app's icon came or went just then, a refresh laid the grid out at another size (inferred, not shown). The check now measures the grid and the button after the drag, and the waits now say what they found when they time out. Then 10 of 10 passed.
-- Most of the time is waiting for the app: two starts, and the test icon appearing and going at the 2 s refresh.
+- Most of the time is waiting for the app: two starts, and the test icon appearing and going at the 2 s refresh. Since To do 8 the refresh is every 10 s with the mouse off the grid, so these two waits take about 10 s each; see "the slower refresh in the test" below.
 - Shown to fail: with the button's top-half rule flipped in the app (`OpensDownAt`), the test stopped at "it is below the button, right edges lined up" with the grid's and the button's rectangles.
 - With tray-anywhere already running, it stops at once with a message, exit code 1.
 
@@ -50,3 +50,8 @@ The GUI test (src/GuiTest, To do 4) starts the real app and works it through mes
 - Errors: a monitor without a button (`screenshots DISPLAY1`) or an unknown argument prints a message, exit code 1.
 - The pictures show the owner's real tray icons, so they differ whenever those change (a run after the review: a fourth pinned icon and a badge had appeared).
 - Not handled (none seen; from the code review): the real mouse resting over the grid or the button (a tooltip, a hover look), another always-on-top window or a notification over them, a machine so busy that 0.5 s isn't enough. Any of these changes the picture; take it again.
+
+## 2026-11-15: the slower refresh in the test (measured, To do 8)
+- The grid refreshes every 2 s only while the mouse is over it, else every 10 s. The test never moves the mouse, so its icon shows at the 10 s refresh: after 10.7 s, and the tile went 8.9 s after the icon did (1 run). The two waits were raised from 8 to 15 s.
+- A new check: the icon must take over 5 s to show (halfway between the 2 s and 10 s rates). The test reads the real cursor position at each look, and if the mouse was over the grid at any of them, the check is skipped instead, since the app then reads every 2 s. A mouse that crosses the grid between two looks (50 ms apart) could still make it fail (not seen).
+- 50 checks (1 new), 29.0 s by the test's clock (1 run), against 13 to 18 s before.

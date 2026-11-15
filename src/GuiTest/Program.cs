@@ -267,22 +267,43 @@ internal static class Program
 
     // The test's own tray icon shows in the grid at a refresh, a left and then a right
     // click on its tile reach it as such, the grid stays open, and the tile goes when the
-    // icon does. Returns the open grid.
+    // icon does. Returns the open grid. With the mouse elsewhere, the grid reads the tray
+    // only every 10 s, so the icon shows about 10 s after the grid opened rather than
+    // within 2 s: checked, unless the test saw the mouse over the grid.
     private static AppWindow TestIconInGrid(TestedApp app, AppWindow button, Screen monitor)
     {
         button.Click();
         var grid = WaitForGrid(app, monitor, "the button opens the grid again");
+        var watch = Stopwatch.StartNew();
+        var mouseOver = false;
         using (var icon = new TestIcon())
         {
-            var tile = WaitFor("the test's own tray icon shows in the grid at a refresh", () => TestIconTile(grid), seconds: 8);
-            Console.WriteLine($"      (in {tile.Id})");
+            var tile = WaitFor("the test's own tray icon shows in the grid at a refresh", () =>
+            {
+                // What the app counts as the grid being used.
+                mouseOver |= grid.Bounds.Contains(Cursor.Position);
+                return TestIconTile(grid);
+            }, seconds: 15);
+            var waited = watch.Elapsed.TotalSeconds;
+            Console.WriteLine($"      (in {tile.Id}, after {waited:0.0} s)");
+            if (mouseOver)
+            {
+                Skipped("an unused grid reads the tray only every 10 s: the mouse was over the grid");
+            }
+            else
+            {
+                // 5 s: halfway between the two rates, well clear of both.
+                Check(waited > 5, "an unused grid reads the tray only every 10 s, not every 2 s", $"the icon showed after {waited:0.0} s");
+            }
             tile.Invoke();
             WaitUntil("a left click on its tile reaches it as a left click", () => icon.Clicks.SequenceEqual([MouseButtons.Left]));
             tile.RightClick();
             WaitUntil("a right click on its tile reaches it as a right click", () => icon.Clicks.SequenceEqual([MouseButtons.Left, MouseButtons.Right]));
             Check(grid.IsOpen, "the grid stays open after clicks on its icons", "it closed");
         }
-        WaitUntil("the tile goes when the icon does", () => TestIconTile(grid) == null, seconds: 8);
+        watch.Restart();
+        WaitUntil("the tile goes when the icon does", () => TestIconTile(grid) == null, seconds: 15);
+        Console.WriteLine($"      (after {watch.Elapsed.TotalSeconds:0.0} s)");
         return grid;
     }
 

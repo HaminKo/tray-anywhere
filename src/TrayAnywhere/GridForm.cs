@@ -108,6 +108,11 @@ internal sealed class GridForm : Form
     // The monitor the grid was opened and laid out for.
     public Screen Monitor { get; }
 
+    // True while the mouse is over the grid, its title bar too. Only the mouse counts
+    // (owner's choice, To do 8): a grid left in front, after the hotkey, while the owner
+    // is away, would otherwise keep reading every 2 s.
+    public bool InUse => Bounds.Contains(Cursor.Position);
+
     // A click on a tile: its tray icon, and the mouse button (Left or Right).
     public event Action<TrayItem, MouseButtons>? IconClicked;
 
