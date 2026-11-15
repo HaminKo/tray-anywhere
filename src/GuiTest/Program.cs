@@ -161,37 +161,59 @@ internal static class Program
         Check(app.ExitCode == 0, "with exit code 0", $"exit code {app.ExitCode}");
     }
 
-    // Start with Windows, clicked twice in the button's right-click menu. The test's Run
-    // key starts out with another copy's exe (a build folder, say), which counts as off;
-    // the first click points it at the tested app's exe, the second deletes it. The menu
-    // closes at each click and is opened again, so its tick is seen as it is when it
-    // opens. Windows' own Run key stays as it was.
+    // Start with Windows, clicked three times in the button's right-click menu, in the
+    // test's own Run and Startup apps keys. The Run key starts out with another copy's exe
+    // (a build folder, say), which counts as off; the first click points it at the tested
+    // app's exe. Then a "turned off" as Task Manager's Startup apps writes it counts as off
+    // too; the second click deletes it. Then a "turned on" from Startup apps counts as on;
+    // the third click deletes it and the Run value. Windows' own keys stay as they were.
     private static void StartWithWindows(TestedApp app, AppWindow button)
     {
-        var windowsValue = TestedApp.RunValue(TestedApp.WindowsRunKey);
-        using (var key = Registry.CurrentUser.CreateSubKey(TestedApp.TestRunKey))
+        var windowsValues = (TestedApp.RunValue(TestedApp.WindowsKey), TestedApp.StartupAppsValue(TestedApp.WindowsKey));
+        using (var key = Registry.CurrentUser.CreateSubKey(TestedApp.TestKey + TestedApp.RunKey))
         {
             key.SetValue("tray-anywhere", @"""C:\another copy\TrayAnywhere.exe""");
         }
         // In quotes, as Windows needs a path that may hold a space.
         var command = $"\"{TestedApp.Exe}\"";
-        foreach (var turnOn in new[] { true, false })
-        {
-            button.RightClick();
-            var item = WaitFor("the button's right-click menu opens, with Start with Windows", () => app.MenuItem("Start with Windows"));
-            Check(AppWindow.IsTicked(item) != turnOn,
-                turnOn ? "Start with Windows is off while the Run key holds another copy's exe" : "Start with Windows is on",
-                turnOn ? "it is ticked" : "it isn't ticked");
-            AppWindow.Invoke(item);
-            var expected = turnOn ? command : null;
-            WaitUntil(turnOn ? "a click on it writes the app's exe to the Run key" : "a second click deletes it again",
-                () => TestedApp.RunValue(TestedApp.TestRunKey) == expected,
-                found: () => $"the value is {TestedApp.RunValue(TestedApp.TestRunKey) ?? "missing"}");
-            // The menu may close only after the click has run (as WinForms' code is
-            // remembered; not measured): a menu found before that would be the old one.
-            WaitUntil("the menu closes", () => app.MenuItem("Start with Windows") == null);
-        }
-        Check(TestedApp.RunValue(TestedApp.WindowsRunKey) == windowsValue, "Windows' own Run key is unchanged", "it changed");
+        ClickStartWithWindows(app, button, "Start with Windows is off while the Run key holds another copy's exe",
+            ticked: false, "a click on it writes the app's exe to the Run key", expectedRun: command);
+        // 1 (turned off) and when, as a FILETIME: what Task Manager wrote on the owner's PC
+        // (docs/research/startup-apps.md).
+        SetStartupAppsValue([1, 0, 0, 0, .. BitConverter.GetBytes(DateTime.Now.ToFileTime())]);
+        ClickStartWithWindows(app, button, "Start with Windows is off while Startup apps says turned off",
+            ticked: false, "a second click deletes that, and the Run value stays", expectedRun: command);
+        // 2 (turned on), then 8 zero bytes: what Task Manager writes when turned on again.
+        SetStartupAppsValue([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        ClickStartWithWindows(app, button, "Start with Windows is on while Startup apps says turned on",
+            ticked: true, "a third click deletes that and the Run value", expectedRun: null);
+        Check((TestedApp.RunValue(TestedApp.WindowsKey), TestedApp.StartupAppsValue(TestedApp.WindowsKey)) == windowsValues,
+            "Windows' own Run and Startup apps values are unchanged", "they changed");
+    }
+
+    // Writes the app's value in the test's Startup apps key.
+    private static void SetStartupAppsValue(byte[] value)
+    {
+        using var key = Registry.CurrentUser.CreateSubKey(TestedApp.TestKey + TestedApp.StartupAppsKey);
+        key.SetValue("tray-anywhere", value, RegistryValueKind.Binary);
+    }
+
+    // Opens the button's menu, checks the tick, clicks Start with Windows, and waits for
+    // the Run value to become expectedRun (null: none) and for no Startup apps value. The
+    // menu closes at each click and is opened again, so its tick is seen as it is when it
+    // opens.
+    private static void ClickStartWithWindows(TestedApp app, AppWindow button, string tickCheck, bool ticked, string clickCheck, string? expectedRun)
+    {
+        button.RightClick();
+        var item = WaitFor("the button's right-click menu opens, with Start with Windows", () => app.MenuItem("Start with Windows"));
+        Check(AppWindow.IsTicked(item) == ticked, tickCheck, ticked ? "it isn't ticked" : "it is ticked");
+        AppWindow.Invoke(item);
+        WaitUntil(clickCheck,
+            () => TestedApp.RunValue(TestedApp.TestKey) == expectedRun && TestedApp.StartupAppsValue(TestedApp.TestKey) == null,
+            found: () => $"the Run value is {TestedApp.RunValue(TestedApp.TestKey) ?? "missing"}, the Startup apps value {TestedApp.StartupAppsValue(TestedApp.TestKey) ?? "missing"}");
+        // The menu may close only after the click has run (as WinForms' code is
+        // remembered; not measured): a menu found before that would be the old one.
+        WaitUntil("the menu closes", () => app.MenuItem("Start with Windows") == null);
     }
 
     // One floating button per secondary monitor, always on top: on the first monitor at

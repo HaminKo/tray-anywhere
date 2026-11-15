@@ -11,16 +11,18 @@ using static GuiTest.Win32;
 namespace GuiTest;
 
 // The app under test: the copy of TrayAnywhere.exe next to this program (GuiTest.csproj
-// puts it there), started with the test's own settings file and Run key. Finds the
+// puts it there), started with the test's own settings file and registry key. Finds the
 // app's windows by the names it gives them for the test.
 internal sealed class TestedApp : IDisposable
 {
     // The test's registry key under HKEY_CURRENT_USER, deleted at the start and end of
-    // each run. The app writes "Start with Windows" to its Run key instead of Windows'
-    // (src/TrayAnywhere/Autostart.cs), which this test never changes.
+    // each run. The app keeps "Start with Windows" in the Run and Startup apps keys below
+    // it, laid out as below Windows' key (src/TrayAnywhere/Autostart.cs), which this test
+    // never changes.
     public const string TestKey = @"Software\tray-anywhere-gui";
-    public const string TestRunKey = TestKey + @"\Run";
-    public const string WindowsRunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    public const string WindowsKey = @"Software\Microsoft\Windows\CurrentVersion";
+    public const string RunKey = @"\Run";
+    public const string StartupAppsKey = @"\Explorer\StartupApproved\Run";
 
     private readonly Process process;
     // The window in front as the app starts: the user's (VS Code, a terminal).
@@ -31,7 +33,7 @@ internal sealed class TestedApp : IDisposable
     // and without the real hotkey, which stays the user's copy's.
     public TestedApp(string settingsPath)
     {
-        process = Process.Start(Exe, ["--gui-test", "--settings", settingsPath, "--run-key", TestRunKey]);
+        process = Process.Start(Exe, ["--gui-test", "--settings", settingsPath, "--registry-key", TestKey]);
     }
 
     // The one-copy locks (src/TrayAnywhere/Program.cs): the test's copy, the user's copy.
@@ -55,11 +57,20 @@ internal sealed class TestedApp : IDisposable
     public bool HasExited => process.HasExited;
     public int ExitCode => process.ExitCode;
 
-    // The app's value in this Run key (named tray-anywhere), or null if there is none.
-    public static string? RunValue(string runKey)
+    // The app's value (named tray-anywhere) in the Run key below this key (TestKey or
+    // WindowsKey), or null if there is none.
+    public static string? RunValue(string registryKey)
     {
-        using var key = Registry.CurrentUser.OpenSubKey(runKey);
+        using var key = Registry.CurrentUser.OpenSubKey(registryKey + RunKey);
         return key?.GetValue("tray-anywhere") as string;
+    }
+
+    // The app's value in the Startup apps key below this key, its bytes in hex
+    // ("0200..."), or null if there is none.
+    public static string? StartupAppsValue(string registryKey)
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(registryKey + StartupAppsKey);
+        return key?.GetValue("tray-anywhere") is byte[] bytes ? Convert.ToHexString(bytes) : null;
     }
 
     public List<AppWindow> Buttons() => TopWindows(new PropertyCondition(AutomationElement.AutomationIdProperty, "FloatingButton"));

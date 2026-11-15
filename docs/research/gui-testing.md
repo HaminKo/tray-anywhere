@@ -33,7 +33,7 @@ The GUI test (src/GuiTest, To do 4) starts the real app and works it through mes
   - To do 5: after an item in the button's menu was clicked through UI Automation's Invoke, the menu opened again from another posted `WM_CONTEXTMENU`, three times in a row (Start with Windows on, off, then Exit), in a freshly started app with no grid opened: 3 of 3 test runs. The test waits for the old menu to go first, in case WinForms runs an item's Click before it closes the menu (as its code is remembered; not measured). Start with Windows reads as a UI Automation Toggle (on/off), as WinForms gives a `CheckOnClick` item.
 
 ## 2026-11-14: Start with Windows in the test (measured)
-- The app writes to the test's own key, HKCU\Software\tray-anywhere-gui\Run (`--run-key`), which the test deletes at the start and end. After 3 runs the key was gone and Windows' Run key had no tray-anywhere value, as before.
+- The app writes to the test's own key, HKCU\Software\tray-anywhere-gui\Run (`--run-key`; since To do 11 `--registry-key Software\tray-anywhere-gui`, see "Startup apps in the test" below), which the test deletes at the start and end. After 3 runs the key was gone and Windows' Run key had no tray-anywhere value, as before.
 - 49 checks (9 new); 17.8, 13.1 and 13.0 s by the test's clock (3 runs, the first right after a build), against 7.2 to 12.2 s before. Not measured how much of that the new checks take (estimated: under a second, three menu openings and two registry writes); the rest varies with how busy the PC is (see "run time" above).
 
 ## 2026-11-14: screenshots (measured)
@@ -62,3 +62,8 @@ The GUI test (src/GuiTest, To do 4) starts the real app and works it through mes
 - Pitfall when measuring from PowerShell: a script that isn't per-monitor DPI aware gets scaled coordinates from both UI Automation's BoundingRectangle and `GetWindowRect`, and different ones in different calls (the DISPLAY6 button read 3774,-138 48x48 in the first call, 2516,-92 32x32 in later ones: 1.5 times, the main monitor's 150 % against that monitor's 100 %). Why they changed between calls: not looked into. After `SetThreadDpiAwarenessContext(-4)` (per-monitor aware v2) both gave the physical places every time.
 - `-- screenshots` with the everyday copy running stops with a message, exit code 1 (1 run).
 - Not tested by Claude: the owner using the everyday copy (Alt+`, its button) while a test runs.
+
+## 2026-11-15: Startup apps in the test (measured, To do 11)
+- The app now takes `--registry-key Software\tray-anywhere-gui` and writes below it to Run and Explorer\StartupApproved\Run, as below Windows' CurrentVersion key; the test still deletes the whole key at the start and end.
+- 55 checks (4 new: a "turned off" (03 and a FILETIME) counts as off and a click deletes it; a "turned on" (02 and zeros) counts as on and the click that unticks deletes it). Passed in 3 of 4 runs: 31.5 and 30.1 s by the test's clock (the third run's time wasn't kept). Windows' own Run and StartupApproved values stayed as they were in all 4 (the test's check, and a watcher logging them every 0.3 s).
+- The failed run, the first after the build: "one of them is on DISPLAY5: none is", at the first button check, right after both buttons were found. That check comes before the Start with Windows step, in code this step didn't change; cause not looked into (seen once).

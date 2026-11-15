@@ -14,7 +14,6 @@ Next number: 12. Numbers are permanent: never renumber or reuse one; to move a t
 - To do 6: When no icons are hidden, read an empty overflow instead of failing (small; user 2026-11-14): docs/todo/06-no-hidden-icons.md
 - To do 7: Move a tray app's menu that opens away from the mouse next to it (medium; user 2026-11-14): docs/todo/07-move-misplaced-menus.md
 - To do 9: An icon matched by order can take the picture of a program without a tray icon (medium; user 2026-11-14): docs/todo/09-wrong-order-match.md
-- To do 11: Start with Windows notices a "disabled" from Task Manager's Startup apps (small; user 2026-11-14): docs/todo/11-startup-apps-disabled.md
 
 ## Later, only if the user asks
 - Live pictures for overflow icons (the exact current image, e.g. a changing badge). v1 draws taskbar icons live and uses Windows' stored snapshot for overflow icons (To do 2 step C).

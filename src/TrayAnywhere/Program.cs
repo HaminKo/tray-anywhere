@@ -14,12 +14,13 @@ internal static class Program
     {
         // No arguments, or for the GUI test (src/GuiTest), so it never changes the user's
         // settings or autostart: "--settings PATH" for another settings file, and
-        // "--run-key KEY" for another registry key than Windows' Run key (see Autostart).
+        // "--registry-key KEY" for another key than Windows' CurrentVersion key, the one
+        // that holds the Run and Startup apps keys (see Autostart).
         // "--gui-test" lets it run beside the user's copy: a lock of its own, and the
         // hotkey left to the user's copy (the test sends the hotkey's message itself).
         // Anything else is refused, so a mistyped option can't fall back to the user's.
         var settingsPath = Settings.DefaultPath;
-        var runKey = Autostart.WindowsRunKey;
+        var registryKey = Autostart.WindowsKey;
         var guiTest = false;
         for (var i = 0; i < args.Length; i++)
         {
@@ -32,14 +33,14 @@ internal static class Program
                 settingsPath = args[i + 1];
                 i++;
             }
-            else if (i + 1 < args.Length && args[i] == "--run-key")
+            else if (i + 1 < args.Length && args[i] == "--registry-key")
             {
-                runKey = args[i + 1];
+                registryKey = args[i + 1];
                 i++;
             }
             else
             {
-                MessageBox.Show("tray-anywhere takes no arguments, or for its GUI test --gui-test, --settings and a file path, and --run-key and a registry key.", "tray-anywhere");
+                MessageBox.Show("tray-anywhere takes no arguments, or for its GUI test --gui-test, --settings and a file path, and --registry-key and a registry key.", "tray-anywhere");
                 return;
             }
         }
@@ -80,7 +81,7 @@ internal static class Program
                 "It starts with the buttons and the grid in their usual places, and won't change the file until it can read it.",
                 "tray-anywhere");
         }
-        using var app = new App(settings, new Autostart(runKey), useHotkey: !guiTest);
+        using var app = new App(settings, new Autostart(registryKey), useHotkey: !guiTest);
         if (app.HotkeyTaken)
         {
             MessageBox.Show(
