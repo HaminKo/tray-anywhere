@@ -1,5 +1,5 @@
 ## Where we are
-- Now: To do 10 (run the GUI test beside the everyday copy)
+- Now: No to-dos open (pick one from Someday, or Before a public release)
 - Next: none
 - Updated: 2026-11-15
 
@@ -7,7 +7,6 @@
 Next number: 12. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
-- To do 10: Run the GUI test while the everyday copy is running (medium; user 2026-11-14): docs/todo/10-test-beside-running-copy.md
 
 ### Bugs me
 

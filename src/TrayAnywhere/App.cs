@@ -40,12 +40,14 @@ internal sealed class App : ApplicationContext
     // True while the grid waits for its tray read, so a second press doesn't open two.
     private bool opening;
 
-    public App(Settings settings, Autostart autostart)
+    // useHotkey: false for the GUI test's copy, which leaves the keys to the user's copy;
+    // its hidden hotkey window is still made, and the test sends it the hotkey's message.
+    public App(Settings settings, Autostart autostart, bool useHotkey)
     {
         this.settings = settings;
         this.autostart = autostart;
         // Oemtilde: the ` and ~ key on a US keyboard.
-        HotkeyRegistered = hotkey.Register(Hotkey.Alt, Keys.Oemtilde);
+        HotkeyTaken = useHotkey && !hotkey.Register(Hotkey.Alt, Keys.Oemtilde);
         // The monitor the mouse is on at the press, not when the read is done.
         hotkey.Pressed += () => OpenOrCloseGrid(Screen.FromPoint(Cursor.Position));
         refreshTimer.Tick += (_, _) => RefreshIfDue();
@@ -54,7 +56,7 @@ internal sealed class App : ApplicationContext
         // slowest), and if Explorer hasn't created the overflow window yet, the one
         // flash of the flyout happens now instead of when the grid opens. No read and no
         // buttons when the app is about to quit because the hotkey is taken.
-        if (HotkeyRegistered)
+        if (!HotkeyTaken)
         {
             _ = reader.ReadAsync(openIfMissing: true);
             MakeButtons();
@@ -62,8 +64,8 @@ internal sealed class App : ApplicationContext
         }
     }
 
-    // False if another program already uses the hotkey.
-    public bool HotkeyRegistered { get; }
+    // True if the app wanted the hotkey and another program already uses it.
+    public bool HotkeyTaken { get; }
 
     // Opens the grid on this monitor, or closes it if it is open there. Open on another
     // monitor, it moves here: closed there, opened here (owner's choice).

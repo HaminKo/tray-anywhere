@@ -5,7 +5,6 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using static GuiTest.Checks;
@@ -47,12 +46,24 @@ internal static class Program
             Console.WriteLine("Use: dotnet run --project src/GuiTest [-- screenshots [DISPLAYn]]");
             return 1;
         }
-        // The app runs one copy at a time (its mutex, in src/TrayAnywhere/Program.cs).
-        if (Mutex.TryOpenExisting(@"Local\tray-anywhere", out var running))
+        // One test copy of the app at a time. One already running is left alone: it may be
+        // another test's, still at work.
+        if (TestedApp.IsRunning(TestedApp.LockName))
         {
-            running.Dispose();
-            Console.WriteLine("tray-anywhere is running. Exit it first (right-click its button: Exit), then run the test again.");
+            Console.WriteLine(@"A test copy of tray-anywhere is running: another GUI test, or one stopped early. Wait for it, or end that copy (TrayAnywhere.exe under src\GuiTest\bin).");
             return 1;
+        }
+        // The test runs beside the user's copy and never touches it. Screenshots copy the
+        // screen, where the user's buttons or grid could show, so they need it closed.
+        var userCopy = TestedApp.IsRunning(TestedApp.UserLockName);
+        if (userCopy && screenshots)
+        {
+            Console.WriteLine("tray-anywhere is running and could show in the pictures. Exit it first (right-click its button: Exit), then take them again.");
+            return 1;
+        }
+        if (userCopy)
+        {
+            Console.WriteLine("note  tray-anywhere is running: the test runs beside it");
         }
         var monitors = Screen.AllScreens.Where(monitor => !monitor.Primary).ToList();
         if (monitors.Count == 0)
@@ -95,6 +106,10 @@ internal static class Program
                 WriteSettings(settingsPath, new(new() { [Key(first)] = ToOffset(first, savedPlace) }, new()));
                 var draggedPlace = FirstRun(settingsPath, monitors, savedPlace);
                 AfterRestart(settingsPath, monitors, draggedPlace);
+                if (userCopy)
+                {
+                    Check(TestedApp.IsRunning(TestedApp.UserLockName), "the user's tray-anywhere still runs", "it has stopped");
+                }
             }
         }
         catch (CheckFailed e)

@@ -34,13 +34,13 @@ dotnet run --project src/TrayDump
 
 Add `-- pictures` to also save each icon's picture to a temp folder, or `-- click 5` / `-- rclick 5` to left- or right-click icon 5 of the list.
 
-A GUI test starts the app with a settings file of its own, works its buttons and popup, and checks what they show. It needs a second monitor and a closed tray-anywhere, and it shows a test tray icon of its own for a few seconds. It never uses your mouse or keyboard:
+A GUI test starts the app with a settings file of its own, works its buttons and popup, and checks what they show. It needs a second monitor, can run while tray-anywhere is running, and shows a test tray icon of its own for a few seconds. It never uses your mouse or keyboard:
 
 ```powershell
 dotnet run --project src/GuiTest
 ```
 
-Add `-- screenshots` to save a picture of the popup on each secondary monitor to a temp folder.
+Add `-- screenshots` to save a picture of the popup on each secondary monitor to a temp folder. Close tray-anywhere first: the pictures are copies of the screen.
 
 ## Start with Windows
 `dotnet run` runs the app from its build folder, which the next build replaces. For every day, publish it to a folder of its own and start it from there:
