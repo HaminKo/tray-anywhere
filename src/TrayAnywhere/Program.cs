@@ -12,22 +12,27 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        // No arguments, or "--settings PATH" for another settings file: the GUI test
-        // (src/GuiTest) uses one in the temp folder, so it never changes the user's.
-        // Anything else is refused, so a mistyped option can't fall back to the user's file.
-        string settingsPath;
-        if (args.Length == 0)
+        // No arguments, or for the GUI test (src/GuiTest), so it never changes the user's
+        // settings or autostart: "--settings PATH" for another settings file, and
+        // "--run-key KEY" for another registry key than Windows' Run key (see Autostart).
+        // Anything else is refused, so a mistyped option can't fall back to the user's.
+        var settingsPath = Settings.DefaultPath;
+        var runKey = Autostart.WindowsRunKey;
+        for (var i = 0; i < args.Length; i += 2)
         {
-            settingsPath = Settings.DefaultPath;
-        }
-        else if (args.Length == 2 && args[0] == "--settings")
-        {
-            settingsPath = args[1];
-        }
-        else
-        {
-            MessageBox.Show("tray-anywhere takes no arguments, or --settings and a file path.", "tray-anywhere");
-            return;
+            if (i + 1 < args.Length && args[i] == "--settings")
+            {
+                settingsPath = args[i + 1];
+            }
+            else if (i + 1 < args.Length && args[i] == "--run-key")
+            {
+                runKey = args[i + 1];
+            }
+            else
+            {
+                MessageBox.Show("tray-anywhere takes no arguments, or --settings and a file path, or --run-key and a registry key.", "tray-anywhere");
+                return;
+            }
         }
 
         // One copy at a time: a second one couldn't register the hotkey. "Local\" makes
@@ -63,7 +68,7 @@ internal static class Program
                 "It starts with the buttons and the grid in their usual places, and won't change the file until it can read it.",
                 "tray-anywhere");
         }
-        using var app = new App(settings);
+        using var app = new App(settings, new Autostart(runKey));
         if (!app.HotkeyRegistered)
         {
             MessageBox.Show(

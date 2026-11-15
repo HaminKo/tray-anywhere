@@ -4,15 +4,23 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows.Automation;
+using Microsoft.Win32;
 using static GuiTest.Win32;
 
 namespace GuiTest;
 
 // The app under test: the copy of TrayAnywhere.exe next to this program (GuiTest.csproj
-// puts it there), started with the test's own settings file. Finds the app's windows by
-// the names it gives them for the test.
+// puts it there), started with the test's own settings file and Run key. Finds the
+// app's windows by the names it gives them for the test.
 internal sealed class TestedApp : IDisposable
 {
+    // The test's registry key under HKEY_CURRENT_USER, deleted at the start and end of
+    // each run. The app writes "Start with Windows" to its Run key instead of Windows'
+    // (src/TrayAnywhere/Autostart.cs), which this test never changes.
+    public const string TestKey = @"Software\tray-anywhere-gui";
+    public const string TestRunKey = TestKey + @"\Run";
+    public const string WindowsRunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+
     private readonly Process process;
     // The window in front as the app starts: the user's (VS Code, a terminal).
     private readonly IntPtr userWindow = GetForegroundWindow();
@@ -20,12 +28,21 @@ internal sealed class TestedApp : IDisposable
     // settingsPath: the file the app reads its places from, and saves a dragged one to.
     public TestedApp(string settingsPath)
     {
-        var exe = Path.Combine(AppContext.BaseDirectory, "TrayAnywhere.exe");
-        process = Process.Start(exe, ["--settings", settingsPath]);
+        process = Process.Start(Exe, ["--settings", settingsPath, "--run-key", TestRunKey]);
     }
+
+    // The app's exe: what "Start with Windows" writes to the Run key.
+    public static string Exe => Path.Combine(AppContext.BaseDirectory, "TrayAnywhere.exe");
 
     public bool HasExited => process.HasExited;
     public int ExitCode => process.ExitCode;
+
+    // The app's value in this Run key (named tray-anywhere), or null if there is none.
+    public static string? RunValue(string runKey)
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(runKey);
+        return key?.GetValue("tray-anywhere") as string;
+    }
 
     public List<AppWindow> Buttons() => TopWindows(new PropertyCondition(AutomationElement.AutomationIdProperty, "FloatingButton"));
 

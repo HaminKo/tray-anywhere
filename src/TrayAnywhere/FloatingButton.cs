@@ -9,8 +9,8 @@ namespace TrayAnywhere;
 // The floating button: a small dark square with Windows' "show hidden icons" arrow, one
 // on each secondary monitor (owner's choice). A click opens or closes the grid next to it,
 // on the side its arrow points to; dragging moves it within its monitor; a right click
-// gives Exit. It is always on top, and takes the keyboard focus only when clicked or
-// dragged, not when it appears.
+// gives Start with Windows and Exit. It is always on top, and takes the keyboard focus
+// only when clicked or dragged, not when it appears.
 internal sealed class FloatingButton : Form
 {
     // Sizes at 100 % scaling, in pixels.
@@ -42,8 +42,9 @@ internal sealed class FloatingButton : Form
     private Point pressPlace;
 
     // monitor: the secondary monitor the button is on. place: where the user last dragged
-    // it there, or null for just above the right end of the taskbar.
-    public FloatingButton(Screen monitor, Point? place)
+    // it there, or null for just above the right end of the taskbar. menu: its right-click
+    // menu (AppMenu), disposed with the button.
+    public FloatingButton(Screen monitor, Point? place, ContextMenuStrip menu)
     {
         Monitor = monitor;
         scale = Dpi.ScaleOf(monitor);
@@ -60,8 +61,6 @@ internal sealed class FloatingButton : Form
         BackColor = Background;
         toolTip.SetToolTip(this, $"Tray icons ({App.HotkeyName})");
 
-        var menu = new ContextMenuStrip();
-        menu.Items.Add("Exit tray-anywhere", null, (_, _) => Application.Exit());
         ContextMenuStrip = menu;
 
         ClientSize = new Size(Px(ButtonSize), Px(ButtonSize));

@@ -95,4 +95,8 @@ internal sealed class AppWindow
 
     public static void Invoke(AutomationElement element) =>
         ((InvokePattern)element.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
+
+    // True when a menu item with a tick (WinForms' CheckOnClick) is ticked.
+    public static bool IsTicked(AutomationElement element) =>
+        ((TogglePattern)element.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState == ToggleState.On;
 }

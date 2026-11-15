@@ -23,6 +23,8 @@ internal sealed class App : ApplicationContext
     private readonly Timer refreshTimer = new() { Interval = 2000 };
     // Where the user dragged the buttons and the grid; saved at each drag.
     private readonly Settings settings;
+    // "Start with Windows" in every window's right-click menu.
+    private readonly Autostart autostart;
     // One floating button per secondary monitor; made again when the monitors change.
     private readonly List<FloatingButton> buttons = [];
     // The open grid, or null.
@@ -30,9 +32,10 @@ internal sealed class App : ApplicationContext
     // True while the grid waits for its tray read, so a second press doesn't open two.
     private bool opening;
 
-    public App(Settings settings)
+    public App(Settings settings, Autostart autostart)
     {
         this.settings = settings;
+        this.autostart = autostart;
         // Oemtilde: the ` and ~ key on a US keyboard.
         HotkeyRegistered = hotkey.Register(Hotkey.Alt, Keys.Oemtilde);
         // The monitor the mouse is on at the press, not when the read is done.
@@ -83,7 +86,7 @@ internal sealed class App : ApplicationContext
             // on a monitor without a button (the main one) does the grid keep a place of its
             // own, where it was last dragged.
             var button = buttons.Find(b => b.Monitor.DeviceName == monitor.DeviceName);
-            grid = new GridForm(state, monitor, button == null ? settings.GridPlace(monitor) : null, button);
+            grid = new GridForm(state, monitor, button == null ? settings.GridPlace(monitor) : null, button, AppMenu.Create(autostart));
             grid.FormClosed += (_, _) => ForgetGrid();
             grid.IconClicked += ClickIcon;
             grid.Dragged += place =>
@@ -124,7 +127,7 @@ internal sealed class App : ApplicationContext
             {
                 continue;
             }
-            var button = new FloatingButton(monitor, settings.ButtonPlace(monitor));
+            var button = new FloatingButton(monitor, settings.ButtonPlace(monitor), AppMenu.Create(autostart));
             button.Clicked += () => OpenOrCloseGrid(monitor);
             button.Dragged += place => settings.SetButtonPlace(monitor, place);
             // An open grid on this monitor goes along with the button while it is dragged.

@@ -1,21 +1,22 @@
 ## Where we are
-- Now: To do 5 (autostart)
+- Now: To do 8 (read the tray less often)
 - Next: none
 - Updated: 2026-11-14
 
 ## To do
-Next number: 10. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
+Next number: 12. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
-- To do 5: Start with Windows, and the README's run and autostart steps (small; user 2026-11-14): docs/todo/05-autostart.md
+- To do 8: Read the tray less often while the grid isn't used (small; user 2026-11-14): docs/todo/08-slower-refresh.md
 
 ### Bugs me
 
 ### Someday
 - To do 6: When no icons are hidden, read an empty overflow instead of failing (small; user 2026-11-14): docs/todo/06-no-hidden-icons.md
 - To do 7: Move a tray app's menu that opens away from the mouse next to it (medium; user 2026-11-14): docs/todo/07-move-misplaced-menus.md
-- To do 8: Read the tray less often while the grid isn't used (small; user 2026-11-14): docs/todo/08-slower-refresh.md
 - To do 9: An icon matched by order can take the picture of a program without a tray icon (medium; user 2026-11-14): docs/todo/09-wrong-order-match.md
+- To do 10: Run the GUI test while the everyday copy is running (medium; user 2026-11-14): docs/todo/10-test-beside-running-copy.md
+- To do 11: Start with Windows notices a "disabled" from Task Manager's Startup apps (small; user 2026-11-14): docs/todo/11-startup-apps-disabled.md
 
 ## Later, only if the user asks
 - Live pictures for overflow icons (the exact current image, e.g. a changing badge). v1 draws taskbar icons live and uses Windows' stored snapshot for overflow icons (To do 2 step C).

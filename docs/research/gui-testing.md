@@ -30,6 +30,11 @@ The GUI test (src/GuiTest, To do 4) starts the real app and works it through mes
   - After the grid closed and the foreground went back to VS Code: the button's menu never showed, 4 of 4. Matches test run 3, where it failed the same way after the grid had closed.
   - Test runs 1 and 2: the grid's menu didn't show after a restart (the button's did, after grids). Not explained; possibly the grid then couldn't take the front (inferred).
   - So WinForms' menus depend on the app's activation history, which posted messages don't fake. A real right-click activates the app first, so the user isn't affected. The test checks Exit only in a freshly started app, on its button, before any grid opens; the grid's Exit is the owner's hand test.
+  - To do 5: after an item in the button's menu was clicked through UI Automation's Invoke, the menu opened again from another posted `WM_CONTEXTMENU`, three times in a row (Start with Windows on, off, then Exit), in a freshly started app with no grid opened: 3 of 3 test runs. The test waits for the old menu to go first, in case WinForms runs an item's Click before it closes the menu (as its code is remembered; not measured). Start with Windows reads as a UI Automation Toggle (on/off), as WinForms gives a `CheckOnClick` item.
+
+## 2026-11-14: Start with Windows in the test (measured)
+- The app writes to the test's own key, HKCU\Software\tray-anywhere-gui\Run (`--run-key`), which the test deletes at the start and end. After 3 runs the key was gone and Windows' Run key had no tray-anywhere value, as before.
+- 49 checks (9 new); 17.8, 13.1 and 13.0 s by the test's clock (3 runs, the first right after a build), against 7.2 to 12.2 s before. Not measured how much of that the new checks take (estimated: under a second, three menu openings and two registry writes); the rest varies with how busy the PC is (see "run time" above).
 
 ## 2026-11-14: screenshots (measured)
 - `dotnet run --project src/GuiTest -- screenshots [DISPLAYn]` (src/GuiTest/Screenshots.cs) starts the app with no saved places (each button in its corner, the grid above it), and on each secondary monitor posts a click on the button, waits for the grid with tiles, and saves `grid-DISPLAY5.png` in `$env:TEMP\tray-anywhere-gui\`.

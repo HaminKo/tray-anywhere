@@ -68,7 +68,8 @@ internal sealed class GridForm : Form
     // state: what to show. monitor: the monitor to open on. place: where the user last
     // dragged the grid on that monitor, or null. button: the floating button there, or
     // null. Without a place the grid opens next to the button, or else in the corner.
-    public GridForm(TrayState state, Screen monitor, Point? place, FloatingButton? button)
+    // menu: the right-click menu of its background (AppMenu), disposed with the grid.
+    public GridForm(TrayState state, Screen monitor, Point? place, FloatingButton? button, ContextMenuStrip menu)
     {
         Monitor = monitor;
         scale = Dpi.ScaleOf(monitor);
@@ -91,10 +92,8 @@ internal sealed class GridForm : Form
         AutoScaleMode = AutoScaleMode.None;
         BackColor = Background;
 
-        // A right click on the grid's background: Exit. Right clicks on tiles don't open
-        // it (see IconTile).
-        var menu = new ContextMenuStrip();
-        menu.Items.Add("Exit tray-anywhere", null, (_, _) => Application.Exit());
+        // A right click on the grid's background: Start with Windows and Exit. Right
+        // clicks on tiles don't open it (see IconTile).
         ContextMenuStrip = menu;
 
         LayOut(state);

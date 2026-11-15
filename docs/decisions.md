@@ -2,6 +2,13 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-14: Start with Windows: one right-click menu, the app run from publish/, a test Run key
+- "Start with Windows" (ticked or not) and Exit are one menu (src/TrayAnywhere/AppMenu.cs) on each floating button and on the grid's background. Reason: with no secondary monitor there are no buttons, so the grid's menu is the only way in. The tick is read from the registry each time the menu opens: on when the Run value is this copy's exe, in quotes. Ticking it in another copy (another folder) points the value at that copy.
+- The everyday copy runs from `publish/` in the project: `dotnet publish src/TrayAnywhere -o publish` (gitignored; framework-dependent: 7 files, 285 KB, about 4 s, measured once). Reason: a copy running from bin\Debug locks TrayAnywhere.exe and Tray.dll, so `dotnet build` fails (seen in this step, with the owner's copy running from there). Drawbacks: Exit before publishing again; `git clean -xfd` deletes the folder. Rejected: `$env:LOCALAPPDATA\Programs\tray-anywhere`, the usual per-user install folder (survives deleting the project, but one more place to know).
+- The GUI test starts the app with `--run-key Software\tray-anywhere-gui\Run` (under HKEY_CURRENT_USER, never read by Windows), deletes that key at the start and end of each run, and checks Windows' own Run key is unchanged. This widens the rule that the test writes only to `$env:TEMP\tray-anywhere-gui`. Rejected: the test only checking the item is there, with Claude checking the real Run key once by hand (not repeated in later steps).
+- Drawback: with Start with Windows on, the app runs all the time, and the GUI test (one copy at a time) needs it closed (Exit) before each run.
+- Decided by: the owner (Claude's suggestions).
+
 ## 2026-11-14: The GUI test: a console program that works the real app through window messages and UI Automation
 - src/GuiTest (`dotnet run --project src/GuiTest`) starts the copy of the app built next to it, with `--settings` pointing to a file in `$env:TEMP\tray-anywhere-gui`, works it as a user would, and checks what it shows (40 checks, exit code 0 or 1). It stops at once if tray-anywhere is running (one copy at a time) and never closes the owner's copy; it needs a secondary monitor. Details and measurements: docs/research/gui-testing.md.
 - Never the real mouse or keyboard: messages posted to the app's own windows, UI Automation's Invoke on tiles and menu items, and the front given back when the grid takes it. Reason: the owner can keep working while it runs. Rejected: `SendInput` (types into whatever window is in front).

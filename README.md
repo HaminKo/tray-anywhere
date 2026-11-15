@@ -5,7 +5,7 @@ Windows 11 shows tray icons (next to the clock, and the hidden ones behind the a
 It uses only what comes with Windows and .NET: no extra libraries.
 
 ## Status
-Early. The popup shows the icons and passes clicks on them to the real ones. Starting with Windows comes next.
+Early. The popup shows the icons and passes clicks on them to the real ones, and the app can start with Windows.
 
 ## Build and run
 You need the .NET 10 SDK:
@@ -41,6 +41,18 @@ dotnet run --project src/GuiTest
 ```
 
 Add `-- screenshots` to save a picture of the popup on each secondary monitor to a temp folder.
+
+## Start with Windows
+`dotnet run` runs the app from its build folder, which the next build replaces. For every day, publish it to a folder of its own and start it from there:
+
+```powershell
+dotnet publish src/TrayAnywhere -o publish
+.\publish\TrayAnywhere.exe
+```
+
+Then right-click a floating button or the popup's background and choose Start with Windows. Windows now starts this copy each time you sign in. Choose it again to turn it off. If you move the folder, choose it again from the new place.
+
+To update, choose Exit and run both lines again; the setting stays.
 
 ## Known limitations
 - Some apps open their right-click menu next to the real tray on the main monitor, not at the mouse. tray-anywhere can't change that.

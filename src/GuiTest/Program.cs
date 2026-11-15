@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Windows.Forms;
+using Microsoft.Win32;
 using static GuiTest.Checks;
 
 namespace GuiTest;
@@ -70,7 +71,10 @@ internal static class Program
             }
         }
         // The test's folder in the temp folder. Besides the screenshots, the one file
-        // written: the app's settings for the test, never the user's.
+        // written: the app's settings for the test, never the user's. In the registry, the
+        // one key written is the test's own (TestedApp.TestKey); a run that failed may
+        // have left it.
+        Registry.CurrentUser.DeleteSubKeyTree(TestedApp.TestKey, throwOnMissingSubKey: false);
         var folder = Path.Combine(Path.GetTempPath(), "tray-anywhere-gui");
         Directory.CreateDirectory(folder);
         var settingsPath = Path.Combine(folder, "settings.json");
@@ -104,6 +108,10 @@ internal static class Program
             Console.WriteLine($"FAILED, an error in the test: {e}");
             return 1;
         }
+        finally
+        {
+            Registry.CurrentUser.DeleteSubKeyTree(TestedApp.TestKey, throwOnMissingSubKey: false);
+        }
         Console.WriteLine($"{(screenshots ? "Done" : "All checks passed")} in {watch.Elapsed.TotalSeconds:0.0} s.");
         return 0;
     }
@@ -122,19 +130,53 @@ internal static class Program
         return draggedPlace;
     }
 
-    // Started again, the button is where it was dragged, and Exit in its right-click menu
-    // ends the app. Before any grid opens: once the app has been in front and lost it,
-    // WinForms doesn't show a menu opened by a message, though a real right-click works
-    // (docs/research/gui-testing.md).
+    // Started again, the button is where it was dragged, Start with Windows in its
+    // right-click menu turns on and off, and Exit there ends the app. Before any grid
+    // opens: once the app has been in front and lost it, WinForms doesn't show a menu
+    // opened by a message, though a real right-click works (docs/research/gui-testing.md).
     private static void AfterRestart(string settingsPath, List<Screen> monitors, Point draggedPlace)
     {
         using var app = new TestedApp(settingsPath);
         var buttons = CheckButtons(app, monitors, draggedPlace);
+        StartWithWindows(app, buttons[0]);
         buttons[0].RightClick();
         var exit = WaitFor("the button's right-click menu opens, with Exit", () => app.MenuItem("Exit tray-anywhere"));
         AppWindow.Invoke(exit);
         WaitUntil("Exit ends the app", () => app.HasExited);
         Check(app.ExitCode == 0, "with exit code 0", $"exit code {app.ExitCode}");
+    }
+
+    // Start with Windows, clicked twice in the button's right-click menu. The test's Run
+    // key starts out with another copy's exe (a build folder, say), which counts as off;
+    // the first click points it at the tested app's exe, the second deletes it. The menu
+    // closes at each click and is opened again, so its tick is seen as it is when it
+    // opens. Windows' own Run key stays as it was.
+    private static void StartWithWindows(TestedApp app, AppWindow button)
+    {
+        var windowsValue = TestedApp.RunValue(TestedApp.WindowsRunKey);
+        using (var key = Registry.CurrentUser.CreateSubKey(TestedApp.TestRunKey))
+        {
+            key.SetValue("tray-anywhere", @"""C:\another copy\TrayAnywhere.exe""");
+        }
+        // In quotes, as Windows needs a path that may hold a space.
+        var command = $"\"{TestedApp.Exe}\"";
+        foreach (var turnOn in new[] { true, false })
+        {
+            button.RightClick();
+            var item = WaitFor("the button's right-click menu opens, with Start with Windows", () => app.MenuItem("Start with Windows"));
+            Check(AppWindow.IsTicked(item) != turnOn,
+                turnOn ? "Start with Windows is off while the Run key holds another copy's exe" : "Start with Windows is on",
+                turnOn ? "it is ticked" : "it isn't ticked");
+            AppWindow.Invoke(item);
+            var expected = turnOn ? command : null;
+            WaitUntil(turnOn ? "a click on it writes the app's exe to the Run key" : "a second click deletes it again",
+                () => TestedApp.RunValue(TestedApp.TestRunKey) == expected,
+                found: () => $"the value is {TestedApp.RunValue(TestedApp.TestRunKey) ?? "missing"}");
+            // The menu may close only after the click has run (as WinForms' code is
+            // remembered; not measured): a menu found before that would be the old one.
+            WaitUntil("the menu closes", () => app.MenuItem("Start with Windows") == null);
+        }
+        Check(TestedApp.RunValue(TestedApp.WindowsRunKey) == windowsValue, "Windows' own Run key is unchanged", "it changed");
     }
 
     // One floating button per secondary monitor, always on top: on the first monitor at
