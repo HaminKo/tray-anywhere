@@ -212,6 +212,45 @@ Method: a probe (C# console on .NET 10, per-monitor DPI aware, in a temp folder)
 - Right monitor (150 %, top-left corner 2560,-865): the menu's corner at the mouse plus (1280, -432.5), 3 of 3 to within 2 px: menu opening upward and to the right of that point with the grid at the monitor's left edge (left 4038 and 4011), to its left with the grid at the right edge (right edge 7442, beyond the monitor's 6400: off-screen).
 - Fits all 5: the corner lands at mouse + monitor's top-left corner x (scale - 1). So at the mouse on the 100 % monitor and on the laptop screen (corner 0,0), and moved on any monitor with other scaling that isn't at 0,0. Why (inferred): two parts of Steam convert between scaled and physical pixels with different origins for that monitor. Steam's own bug; a real click never meets it, because the real tray is on the laptop screen.
 
+## 2026-11-15: To do 7 step A: moving Steam's menu (build 26300)
+Method: a logger (C# console, .NET 10, per-monitor aware, physical pixels, in a temp folder, not committed) listed every top-level window that became visible, every 50 ms, with program, class, styles, owner, DPI awareness, place, and the time since the last mouse button release (read with GetAsyncKeyState every 10 ms). 1.5 s after Steam's "Menu" window showed, it moved it with `SetWindowPos` (no size change, no z-order change, no activation) so that a corner sat at the mouse, opening up and to the right, flipped where there was no room. The owner right-clicked Steam's tile twice on the right monitor (150 %), and clicked Discord's and OneDrive's tiles.
+
+### Steam's menu (measured, 2 right clicks)
+- One window for every menu: steamwebhelper, class `SDL_app`, title "Menu", 380x682, styles POPUP, CAPTION, SYSMENU, MINIMIZEBOX; extended styles TOPMOST and TOOLWINDOW; owned by another steamwebhelper window; per-monitor aware. Created at the first right click, then hidden and shown again: the second click showed the same window.
+- Timing: visible 157 and 281 ms after the button release. The first time it showed at 32767,32767 and was put in place 80 ms later; the second time it showed at its previous place and was put in place 76 ms later. So a mover must not act on the first place it sees.
+- Place: mouse 6325,991, menu (7225,-124)-(7605,558): its bottom-right corner at mouse + (1280, -433), fully off-screen (the monitor ends at 6400). Mouse 3155,1004, menu (4436,-111)-(4816,571): its bottom-left corner at mouse + (1281, -433). Both fit the formula in "Where Steam's menu opens" to within 1 px.
+- The move worked: `SetWindowPos` returned true, and the menu stayed where it was put (no move back while open). The owner saw it appear at the mouse ("steam menu moves"). When the menu closed, Steam first moved it back to its wrong place, then hid it (78 ms).
+- Hover and a click on an item after the move (owner, 2026-11-16, setting back on): the highlight follows the mouse, and "Store" works. In the first two tries the menu was closed by a click outside it.
+- It took the foreground when it showed.
+
+### Moving it at once (measured, 2026-11-16 00:42, setting on, 16 right clicks)
+- The logger looked for Steam's menu by class and title (`FindWindow("SDL_app", "Menu")`) every ~15 ms during 1.5 s after a right click, and moved it whenever it was visible and the click wasn't within 50 px of it.
+- First move 51 to 246 ms after the button release, as soon as the menu showed at its previous place; Steam then put it at its wrong place 13 to 35 ms later, and the logger moved it again. So two moves per opening.
+- On every close, Steam first moves the menu back to its wrong place while it is still visible, then hides it 30 to 90 ms later (seen on every close in this run and the earlier ones).
+- Owner (2026-11-16): "it feels instant, but if I spam I can see a flash at a wrong spot very briefly". The flash comes from Steam's own moves (at opening and before closing): a mover outside Steam can only correct them after they happen, here within ~15 ms (one check), about one frame at 60 Hz (estimate).
+
+### Moving it from a WinEvent hook (measured, 2026-11-16 01:04, setting on, 49 openings)
+- Instead of checking every 15 ms, the logger set two out-of-context WinEvent hooks (`SetWinEventHook`: EVENT_OBJECT_SHOW to EVENT_OBJECT_HIDE, and EVENT_OBJECT_LOCATIONCHANGE; WINEVENT_SKIPOWNPROCESS), handled on its own message loop. For a window event (OBJID_WINDOW) of class `SDL_app`, title "Menu", process steamwebhelper, it moved the menu whenever it was visible and the mouse wasn't within 50 px of it. Nothing runs inside Steam.
+- Lag from Steam's event to the move, by `GetTickCount` (15.6 ms steps): at show, 0 ms in 41 of 49 and one step (15 to 16 ms) in 8; after Steam's own move, 0 ms in 59 of 60 and one step in 1. Our own move raises a LOCATIONCHANGE too; the menu is then near the mouse, so it is left alone (no loop).
+- Owner, spamming right clicks with the grid in the left half of the right monitor: "much better - spamming makes it only flash very briefly every like 15 spam clicks or so" (with 15 ms checks: a flash at most spam clicks). The remaining flashes may be the late corrections (inferred, not matched one by one).
+
+### Other windows in the same run (measured)
+- Discord's tray menu (right click): `Chrome_WidgetWin_1`, no title, 416x479, POPUP; TOPMOST and TOOLWINDOW; no owner; shown 264 ms after the click at (6009,512)-(6425,991) with the mouse at 6045,937: at the mouse, 25 px past the monitor's right edge (probably its shadow, inferred). Discord's main window was already open, so the left click showed no new window.
+- OneDrive's Activity Center (left click): `OneDriveReactNativeWin32WindowClass`, 540x960, POPUP; TOOLWINDOW, not TOPMOST; no owner; system DPI aware; on the laptop screen, 265 ms after the click.
+- Unrelated popups that came and went during the run: the owner's Session Inbox popups (POPUP; TOPMOST, TOOLWINDOW, NOACTIVATE), in the bottom-right corner of both external monitors, at times unrelated to any click. They look like menus by their styles and sit on the grid's monitor far from the mouse, so a rule for any program's menu would move one that appears within the watch time after a click. Explorer's own popups (overflow flyout, tooltips) appeared on the laptop screen.
+
+### Steam's "Scale text and icons to match monitor settings" off (measured, 23:51, same logger, nothing moved)
+- The owner turned the setting off (Steam > Settings > Interface) and restarted Steam. The menu window is now 248x456 on every monitor (380x682 on the 150 % monitor before), still per-monitor aware: Steam no longer scales its content, so the menu is small on 150 % monitors (owner: "the steam menu is small now on my right monitor").
+- Right monitor (150 %): at the mouse in 6 of 6 left and right clicks, with the grid in the left half and in the right half (a corner within 15 px of the mouse, 5 of them within 2 px). So the setting removes the offset.
+- Top-left monitor (100 %), mouse at 2526,-164, 34 px from its right edge: the first right click opened the menu at the mouse; the second opened it at (2649,-536)-(2897,-80), 123 px right of the mouse and on the right monitor. Seen once; cause unknown. With the setting on, that monitor gave the menu at the mouse 2 of 2 (To do 3).
+- So the only upstream fix in reach costs Steam's scaling on the 150 % monitors.
+
+### Where the wrong place comes from
+- The forwarded click carries no position: UI Automation's Invoke and ShowContextMenu take no point, and Discord's menu, sent the same way, opens at the mouse. So the app can't be giving Steam a wrong point (inferred from the code and the Discord measurement).
+- Known to Steam's users: since Valve moved the tray menu into Chromium (June 2023), it can open in the wrong place with display scaling above 100 %. A 2023 beta's changelog says it fixed "systray menu opening at wrong location for certain Windows scaling settings or when scaling is disabled in Steam" (as quoted in the forum threads, not checked in Valve's own notes). Users report that turning off "Scale text and icons to match monitor settings" (Steam > Settings > Interface, restart needed) fixed it (one user). Tested: see the section above.
+- Why real clicks rarely show it (inferred): the real tray is on the primary monitor, whose top-left corner is 0,0, so the offset corner x (scale - 1) is zero there.
+- Sources: https://steamcommunity.com/discussions/forum/0/6516193260168858474 (tray menu and Chromium with display scaling), https://steamcommunity.com/discussions/forum/0/6516193260165168475, https://steamcommunity.com/groups/SteamClientBeta/discussions/0/3826413850815275817 (Steam Client Beta threads).
+
 ## 2026-11-15: To do 8: the slower refresh (build 26300)
 The grid now reads every 2 s only while the mouse is over it, else every 10 s (docs/decisions.md, 2026-11-15).
 

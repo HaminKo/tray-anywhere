@@ -1,7 +1,7 @@
 ## Where we are
-- Now: To do 7 (move a misplaced tray menu next to the mouse)
+- Now: To do 7, step B (Steam-only menu mover)
 - Next: To do 9
-- Updated: 2026-11-15
+- Updated: 2026-11-16
 
 ## To do
 Next number: 12. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.

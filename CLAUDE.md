@@ -45,6 +45,7 @@ Reasons, who decided and what was rejected: docs/decisions.md.
 - Layout: src/Tray holds only the code that reads and clicks the tray and is the only app project that uses UI Automation (`<UseWPF>`); src/TrayDump is the console tool; src/TrayAnywhere is the app (To do 3); src/GuiTest is the GUI test, which uses UI Automation on the app's own windows.
 - GUI test: works the real app through posted window messages and UI Automation, never the real mouse or keyboard; clicks only a tray icon of its own; writes only to `$env:TEMP\tray-anywhere-gui` and its own registry key HKCU\Software\tray-anywhere-gui (the app's `--registry-key`), never Windows' Run or Startup apps keys; runs beside the owner's copy (the app's `--gui-test`: its own lock, no hotkey).
 - Tests run at the app's real speed: no test-only option that shortens its timers or waits.
+- Steam's tray menu, which Steam misplaces on scaled monitors, is moved to the click by a Steam-only mover on a WinEvent hook; no mover for other programs' windows.
 - Implicit usings off; a short hand-written .editorconfig.
 - Grid: Alt+`; dark; app icons only, tooltip on hover; reads the tray before it shows; stays on top until its X, Escape or Alt+`; draggable within its monitor. Floating button: one per secondary monitor.
 
