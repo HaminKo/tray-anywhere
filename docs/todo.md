@@ -1,19 +1,19 @@
 ## Where we are
-- Now: No to-dos open (pick one from Someday, or Before a public release)
-- Next: none
+- Now: To do 7 (move a misplaced tray menu next to the mouse)
+- Next: To do 9
 - Updated: 2026-11-15
 
 ## To do
 Next number: 12. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
+- To do 7: Move a tray app's menu that opens away from the mouse next to it (medium; user 2026-11-14): docs/todo/07-move-misplaced-menus.md
 
 ### Bugs me
+- To do 9: An icon matched by order can take the picture of a program without a tray icon (medium; user 2026-11-14): docs/todo/09-wrong-order-match.md
 
 ### Someday
 - To do 6: When no icons are hidden, read an empty overflow instead of failing (small; user 2026-11-14): docs/todo/06-no-hidden-icons.md
-- To do 7: Move a tray app's menu that opens away from the mouse next to it (medium; user 2026-11-14): docs/todo/07-move-misplaced-menus.md
-- To do 9: An icon matched by order can take the picture of a program without a tray icon (medium; user 2026-11-14): docs/todo/09-wrong-order-match.md
 
 ## Later, only if the user asks
 - Live pictures for overflow icons (the exact current image, e.g. a changing badge). v1 draws taskbar icons live and uses Windows' stored snapshot for overflow icons (To do 2 step C).
