@@ -81,7 +81,7 @@ internal static class Program
                 "It starts with the buttons and the grid in their usual places, and won't change the file until it can read it.",
                 "tray-anywhere");
         }
-        using var app = new App(settings, new Autostart(registryKey), useHotkey: !guiTest);
+        using var app = new App(settings, new Autostart(registryKey), useHotkey: !guiTest, new SteamMenu(alsoGuiTest: guiTest));
         if (app.HotkeyTaken)
         {
             MessageBox.Show(

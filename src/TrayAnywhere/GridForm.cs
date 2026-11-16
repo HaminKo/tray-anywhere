@@ -113,8 +113,9 @@ internal sealed class GridForm : Form
     // is away, would otherwise keep reading every 2 s.
     public bool InUse => Bounds.Contains(Cursor.Position);
 
-    // A click on a tile: its tray icon, and the mouse button (Left or Right).
-    public event Action<TrayItem, MouseButtons>? IconClicked;
+    // A click on a tile: its tray icon, the mouse button (Left or Right), and where a menu
+    // the click opens belongs (see MenuPoint).
+    public event Action<TrayItem, MouseButtons, Point>? IconClicked;
 
     // The user dragged the grid to this place (its top-left corner). On a monitor with a
     // button, the button has moved along.
@@ -186,6 +187,18 @@ internal sealed class GridForm : Form
     {
         toolTip.SetToolTip(tile, text);
         tile.AccessibleName = text;
+    }
+
+    // Where a menu opened by a click on this tile belongs: at the mouse if it is over the
+    // grid, else (Enter, the menu key, the GUI test) at the tile's centre.
+    private Point MenuPoint(IconTile tile)
+    {
+        if (InUse)
+        {
+            return Cursor.Position;
+        }
+        var bounds = tile.RectangleToScreen(tile.ClientRectangle);
+        return new Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2);
     }
 
     // Where the user last dragged the grid; or else next to the floating button; or else
@@ -338,8 +351,8 @@ internal sealed class GridForm : Form
             };
             SetText(tile, TooltipText(item));
             // tile.Item, not item: the tile gets the newest item at each refresh.
-            tile.Click += (_, _) => IconClicked?.Invoke(tile.Item, MouseButtons.Left);
-            tile.RightClick += () => IconClicked?.Invoke(tile.Item, MouseButtons.Right);
+            tile.Click += (_, _) => IconClicked?.Invoke(tile.Item, MouseButtons.Left, MenuPoint(tile));
+            tile.RightClick += () => IconClicked?.Invoke(tile.Item, MouseButtons.Right, MenuPoint(tile));
             tiles.Add(tile);
             Controls.Add(tile);
         }

@@ -251,6 +251,12 @@ Method: a logger (C# console, .NET 10, per-monitor aware, physical pixels, in a 
 - Why real clicks rarely show it (inferred): the real tray is on the primary monitor, whose top-left corner is 0,0, so the offset corner x (scale - 1) is zero there.
 - Sources: https://steamcommunity.com/discussions/forum/0/6516193260168858474 (tray menu and Chromium with display scaling), https://steamcommunity.com/discussions/forum/0/6516193260165168475, https://steamcommunity.com/groups/SteamClientBeta/discussions/0/3826413850815275817 (Steam Client Beta threads).
 
+### In the code (To do 7 step B)
+- src/TrayAnywhere/SteamMenu.cs: `App.ClickIcon` calls `Watch(point)` before each left or right click goes out. It sets two out-of-context WinEvent hooks (EVENT_OBJECT_SHOW to EVENT_OBJECT_HIDE; EVENT_OBJECT_LOCATIONCHANGE; WINEVENT_SKIPOWNPROCESS) if they aren't set. A menu that shows within 1 s of the last click is moved, and so is every move of it until it hides; one that shows later (from Steam's real icon) isn't. A 1 s timer removes the hooks once the last click is at least 1 s old and no menu being moved is open. Not when the menu hides: a second click on Steam's tile closes the open menu, and its "hidden" event can come in after the second click set its watch (owner's choice).
+- Filter at show, cheapest first: OBJID_WINDOW and CHILDID_SELF, class `SDL_app`, title "Menu", then the program's name (hide and move events count only for that window): steamwebhelper (with `--gui-test` also GuiTest). A menu within 50 px of the point is left alone; else its corner goes to the point, up and to the right, flipped left or down where the monitor's free area has no room, then kept inside that area; no move if it is there already.
+- The point (`GridForm.MenuPoint`): the mouse if it is over the grid, else the tile's centre (Enter, the menu key, the GUI test's posted right click).
+- GUI test: its tray icon, on a right click, opens a window of class `SDL_app` titled "Menu" (src/GuiTest/SteamLikeMenu.cs: RegisterClass, CreateWindowEx, shown without activation) 1280 px right of and 433 px above the tile's centre; the test checks that the app moves it so a corner is at that centre (passed, 2026-11-16, first run).
+
 ## 2026-11-15: To do 8: the slower refresh (build 26300)
 The grid now reads every 2 s only while the mouse is over it, else every 10 s (docs/decisions.md, 2026-11-15).
 

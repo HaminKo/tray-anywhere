@@ -56,7 +56,6 @@ To update, choose Exit and run both lines again; the setting stays.
 
 ## Known limitations
 - Some apps open their right-click menu next to the real tray on the main monitor, not at the mouse. tray-anywhere can't change that.
-- Steam's menu can open away from the mouse, even off-screen, on a monitor with other scaling than 100 %. Use the popup on another monitor for Steam, or on the left part of that one.
 - Icon pictures may look a little different from the real tray icons.
 - The floating button stays on top, so it covers a corner of the window under it, also over full-screen video. Drag it somewhere else if it is in the way.
 - A Windows update can change how the taskbar is built and break icon detection until tray-anywhere is updated.

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Microsoft.Win32;
@@ -39,13 +40,17 @@ internal sealed class App : ApplicationContext
     private GridForm? grid;
     // True while the grid waits for its tray read, so a second press doesn't open two.
     private bool opening;
+    // Moves Steam's tray menu to the click when Steam opens it far away.
+    private readonly SteamMenu steamMenu;
 
     // useHotkey: false for the GUI test's copy, which leaves the keys to the user's copy;
     // its hidden hotkey window is still made, and the test sends it the hotkey's message.
-    public App(Settings settings, Autostart autostart, bool useHotkey)
+    // The app disposes steamMenu.
+    public App(Settings settings, Autostart autostart, bool useHotkey, SteamMenu steamMenu)
     {
         this.settings = settings;
         this.autostart = autostart;
+        this.steamMenu = steamMenu;
         // Oemtilde: the ` and ~ key on a US keyboard.
         HotkeyTaken = useHotkey && !hotkey.Register(Hotkey.Alt, Keys.Oemtilde);
         // The monitor the mouse is on at the press, not when the read is done.
@@ -197,8 +202,13 @@ internal sealed class App : ApplicationContext
 
     // A click on a tile goes to its real tray icon, on a background thread: the click
     // calls into Explorer (17 to 82 ms, measured in To do 2), too long for the UI thread.
-    private async void ClickIcon(TrayItem item, MouseButtons button)
+    // menuPoint: where a menu the click opens belongs.
+    private async void ClickIcon(TrayItem item, MouseButtons button, Point menuPoint)
     {
+        // Before the click goes out: Steam's menu can show 51 ms after a click (measured,
+        // To do 7 step A), before the click call returns, and one already in its wrong
+        // place when the watch starts would bring no later event to move it.
+        steamMenu.Watch(menuPoint);
         try
         {
             await Task.Run(() =>
@@ -234,6 +244,7 @@ internal sealed class App : ApplicationContext
             }
             refreshTimer.Dispose();
             hotkey.Dispose();
+            steamMenu.Dispose();
         }
         base.Dispose(disposing);
     }

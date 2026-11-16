@@ -1,16 +1,15 @@
 ## Where we are
-- Now: To do 7, step B (Steam-only menu mover)
-- Next: To do 9
+- Now: To do 9 (order match takes a wrong picture)
+- Next: none
 - Updated: 2026-11-16
 
 ## To do
 Next number: 12. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
-- To do 7: Move a tray app's menu that opens away from the mouse next to it (medium; user 2026-11-14): docs/todo/07-move-misplaced-menus.md
+- To do 9: An icon matched by order can take the picture of a program without a tray icon (medium; user 2026-11-14): docs/todo/09-wrong-order-match.md
 
 ### Bugs me
-- To do 9: An icon matched by order can take the picture of a program without a tray icon (medium; user 2026-11-14): docs/todo/09-wrong-order-match.md
 
 ### Someday
 - To do 6: When no icons are hidden, read an empty overflow instead of failing (small; user 2026-11-14): docs/todo/06-no-hidden-icons.md

@@ -303,8 +303,9 @@ internal static class Program
     }
 
     // The test's own tray icon shows in the grid at a refresh, a left and then a right
-    // click on its tile reach it as such, the grid stays open, and the tile goes when the
-    // icon does. Returns the open grid. With the mouse elsewhere, the grid reads the tray
+    // click on its tile reach it as such, the window like Steam's menu that the right
+    // click opens far away is moved to the tile, the grid stays open, and the tile goes
+    // when the icon does. Returns the open grid. With the mouse elsewhere, the grid reads the tray
     // only every 10 s, so the icon shows about 10 s after the grid opened rather than
     // within 2 s: checked, unless the test saw the mouse over the grid.
     private static AppWindow TestIconInGrid(TestedApp app, AppWindow button, Screen monitor)
@@ -334,8 +335,19 @@ internal static class Program
             }
             tile.Invoke();
             WaitUntil("a left click on its tile reaches it as a left click", () => icon.Clicks.SequenceEqual([MouseButtons.Left]));
+            // Where Steam opens its menu on the owner's 150 % monitor: 1280 px right of and
+            // 433 px above the click (docs/research/uia-tray.md "Where Steam's menu opens"),
+            // at its size at 100 % scaling.
+            var t = tile.Bounds;
+            var tileCentre = new Point(t.X + t.Width / 2, t.Y + t.Height / 2);
+            icon.MenuPlace = new Rectangle(tileCentre.X + 1280, tileCentre.Y - 433, Px(monitor, 248), Px(monitor, 456));
+            // The app puts a menu at the mouse instead, if it is over the grid when the app
+            // takes the click: looked at before and after.
+            var mouseOnGrid = grid.Bounds.Contains(Cursor.Position);
             tile.RightClick();
             WaitUntil("a right click on its tile reaches it as a right click", () => icon.Clicks.SequenceEqual([MouseButtons.Left, MouseButtons.Right]));
+            mouseOnGrid |= grid.Bounds.Contains(Cursor.Position);
+            CheckSteamMenuMoved(icon, monitor, mouseOnGrid ? null : tileCentre);
             Check(grid.IsOpen, "the grid stays open after clicks on its icons", "it closed");
         }
         watch.Restart();
@@ -343,6 +355,32 @@ internal static class Program
         Console.WriteLine($"      (after {watch.Elapsed.TotalSeconds:0.0} s)");
         return grid;
     }
+
+    // The app moves the test's window like Steam's menu from far away to the click: a
+    // corner at the tile's centre (null: the mouse was over the grid, so the app took the
+    // mouse instead; left to the user's test), the window inside the monitor's free area.
+    private static void CheckSteamMenuMoved(TestIcon icon, Screen monitor, Point? tileCentre)
+    {
+        var menu = icon.Menu;
+        Check(menu != null, "the right click opens the test's window like Steam's menu, far away", "it didn't");
+        var area = monitor.WorkingArea;
+        if (tileCentre is Point centre)
+        {
+            WaitUntil("the app moves it to the tile: a corner at the tile's centre, inside the monitor's free area",
+                () => Corners(menu.Bounds).Contains(centre) && area.Contains(menu.Bounds),
+                found: () => $"it is at {menu.Bounds}, the tile's centre at {centre}, the free area {area}");
+        }
+        else
+        {
+            Skipped("the window like Steam's menu at the tile: the mouse was over the grid, so the app puts it at the mouse");
+            WaitUntil("the app moves it inside the monitor's free area",
+                () => menu.Bounds.Location != icon.MenuPlace.Location && area.Contains(menu.Bounds),
+                found: () => $"it is at {menu.Bounds}, the free area {area}");
+        }
+    }
+
+    private static Point[] Corners(Rectangle r) =>
+        [new(r.Left, r.Top), new(r.Right, r.Top), new(r.Left, r.Bottom), new(r.Right, r.Bottom)];
 
     private static AppWindow? TestIconTile(AppWindow grid) =>
         TestedApp.Tiles(grid).Find(tile => tile.Name.Contains(TestIcon.Name));
