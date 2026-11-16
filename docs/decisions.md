@@ -2,6 +2,12 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-15: Tests run at the app's real speed
+- The GUI test, and any later test tool, never makes the app run faster than it does for the owner: no test-only option or setting that shortens its timers or waits (refresh rates, delays). The test waits as long as the real app takes, so it checks the real timing. The test may still look as often as it likes while it waits. This widens the rejection of "a test-only option for a faster unused rate" in the To do 8 entry below from that one rate to every timer.
+- Reason: a sped-up test checks timing the owner never runs. The price is a slower test (about 30 s for the GUI test now, mostly the 10 s refresh).
+- Decided by: the owner ("Sped-up play is not allowed"; Claude's suggested wording).
+- Rejected: test-only faster timers (they would test a different app than the one the owner runs).
+
 ## 2026-11-15: Start with Windows reads a "turned off" from Task Manager's Startup apps, and a click clears it
 - The tick shows only when the Run value is this copy's exe and Startup apps' value of the same name (HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run) doesn't say turned off: an odd first byte (1 or 3). A click in the menu deletes that value, ticked or not: a tick wins over a "turned off" from Task Manager or Settings > Apps > Startup (the last place the owner changed it wins), and no tick leaves nothing behind. Format and sources: docs/research/startup-apps.md.
 - Reason: Task Manager turns an entry off without touching the Run value, so the tick stayed on, and ticking again only rewrote the Run value: the menu couldn't turn it back on.
