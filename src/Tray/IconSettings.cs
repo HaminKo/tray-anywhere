@@ -11,7 +11,10 @@ namespace Tray;
 // ID (two PowerShell scripts) share one entry.
 // IsPromoted: shown on the taskbar rather than in the overflow.
 // Snapshot: a PNG picture of the icon, possibly older than the real one.
-public sealed record IconSetting(string ExePath, string InitialTooltip, bool IsPromoted, byte[]? Snapshot);
+// Uid, IconGuid: how the program names its icon, by a number or a GUID (one of them is
+// set). Uid is the number Windows first saw; the program may use another one now.
+public sealed record IconSetting(
+    string ExePath, string InitialTooltip, bool IsPromoted, byte[]? Snapshot, uint? Uid, Guid? IconGuid);
 
 // Reads that list from HKCU\Control Panel\NotifyIconSettings. Undocumented: what this file
 // relies on was measured on build 26300 (docs/research/uia-tray.md "Spike step C"), so a
@@ -44,7 +47,10 @@ public static class IconSettings
                 ResolveKnownFolder(entry.GetValue("ExecutablePath") as string ?? ""),
                 entry.GetValue("InitialTooltip") as string ?? "",
                 entry.GetValue("IsPromoted") is int promoted && promoted == 1,
-                entry.GetValue("IconSnapshot") as byte[]));
+                entry.GetValue("IconSnapshot") as byte[],
+                // A DWORD comes back as an int: Task Manager's 0xFFFFFFFF reads as -1.
+                entry.GetValue("UID") is int uid ? unchecked((uint)uid) : null,
+                Guid.TryParse(entry.GetValue("IconGuid") as string, out var guid) ? guid : null));
         }
         return entries;
     }

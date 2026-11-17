@@ -1,5 +1,5 @@
 ## Where we are
-- Now: To do 9 (order match takes a wrong picture)
+- Now: Before a public release (no to-dos open)
 - Next: none
 - Updated: 2026-11-16
 
@@ -7,7 +7,6 @@
 Next number: 12. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
-- To do 9: An icon matched by order can take the picture of a program without a tray icon (medium; user 2026-11-14): docs/todo/09-wrong-order-match.md
 
 ### Bugs me
 
