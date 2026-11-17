@@ -294,6 +294,40 @@ Method: read-only PowerShell probes (C# through Add-Type for the timed loops), c
 - Message-only windows can only be listed with a `FindWindowEx(HWND_MESSAGE, previous)` loop: `EnumChildWindows(HWND_MESSAGE)` found 0 of 612 (measured). The loop ends early if the window it is at closes meanwhile; that read may then miss an icon (code review; not seen).
 - Known limits, not seen here (code review): an unnamed icon whose stored UID is stale (like Task Manager's) in a gap with an extra program now gets no program, where the old order match may have been right; a gap with as many programs as unnamed icons isn't checked, so an icon without an entry plus a program without an icon in the same gap still shift (both together needed).
 
+## 2026-11-17: To do 6: no arrow (build 26300)
+Method: a read-only PowerShell probe (invokes nothing): the tray pane's buttons on the taskbar through UI Automation, and the overflow window through `FindWindowEx` and its button count. The owner changed the settings by hand.
+
+### Settings' "Hidden icon menu" switch (measured)
+- The switch exists on this build: Settings > Personalization > Taskbar > Other system tray icons > Hidden icon menu. Before: the arrow on the taskbar, 4 app icons there, overflow window hidden with 13 buttons.
+- Turned off (probe 00:52, no Explorer restart): the arrow is gone from the taskbar's tray pane at once (the first system button is now the microphone indicator). The 13 hidden icons do **not** move to the taskbar: still 4 app icons there, and the overflow window still exists, hidden, with its 13 buttons. So with the switch off, icons are still hidden; the owner just has no way to reach them on the taskbar. "No arrow" does not mean "nothing hidden".
+- The switch's value: `HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\TrayNotify`, `SystemTrayChevronVisibility` (DWORD), 0 while off (found by searching HKCU for "Chevron"). Not in `Explorer\Advanced` nor in `NotifyIconSettings`. Undocumented.
+- Explorer restarted with the switch off (owner, from Task Manager; probe 00:53): no arrow, and **no overflow window**. 3 app icons on the taskbar. Today's TrayDump: "12 on the taskbar, 0 in the overflow", "Overflow not read: Found no tray button named "Show Hidden Icons"", exit code 1. So in this state the hidden icons can't be read at all: there is no window, and no arrow to make Explorer create one.
+
+### Every icon turned on (measured)
+Method: the same probe as a watcher every 2 s, logging each change (01:11), while the owner turned the switch back on and then each hidden icon on in Settings, without an Explorer restart.
+- Switch on: the arrow is back at once and `SystemTrayChevronVisibility` is 1. Still no overflow window.
+- Turning icons on moved them to the taskbar one by one (3, 4, 6, 8, 9, 11 app icons). With 11 there, the overflow window appeared, hidden, with the 5 still-hidden buttons. Neither the probe nor the owner opened the flyout (the owner turned switches only), so Explorer created the window on its own here; why then, unknown. It then lost one button per icon turned on.
+- With the last icon on: **the arrow disappears**, 16 app icons on the taskbar, the overflow window stays with **0 buttons**. Today's TrayDump: "0 in the overflow", exit code 0 (the window exists, so nothing fails).
+- Explorer restarted in this state (owner, 01:13): no arrow, **no overflow window**, 16 app icons on the taskbar, `SystemTrayChevronVisibility` 1. Today's TrayDump: "0 in the overflow", "Overflow not read: Found no tray button named "Show Hidden Icons"", exit code 1: the bug this to-do is about.
+
+### So (measured states, switch and restart)
+| Hidden icon menu | Icons hidden | Since Explorer started | Arrow | Overflow window |
+|---|---|---|---|---|
+| on | some | flyout opened once | yes | yes, with them |
+| on | some | not opened yet | yes | none |
+| on | none | window made earlier | no | yes, 0 buttons |
+| on | none | restarted so | no | none |
+| off | some | window made earlier | no | yes, with them |
+| off | some | restarted so | no | none: they can't be read |
+
+No arrow and no window means "nothing hidden" only while the switch is on; the switch's registry value tells the two apart.
+
+### In the code (To do 6)
+- src/Tray/Taskbar.cs `ReadOverflowItems`: when the overflow window is missing it looks for the arrow first (also on refresh reads). No arrow: switch off (`SystemTrayChevronVisibility` = 0) throws an error that names the switch; otherwise (1, or no value on a Windows without the switch) an empty list. With the arrow: as before. `FindArrow` is shared with `OpenAndCloseOverflow`.
+- Tested on the live taskbar, the window missing since the 01:13 restart (no extra restart needed): switch off (01:18), TrayDump exit 1 with the switch's message; switch on and every icon on (01:19; this time Explorer created no window while the icons were turned on), TrayDump "25 on the taskbar, 0 in the overflow", exit 0. The watcher saw no window appear during either run, so nothing was opened.
+- Owner's test (2026-11-17, the published app): every icon on, no window: the grid showed only Pinned, no problem line, nothing flashed. Switch off, then the 13 icons hidden again (the watcher saw no window appear): Pinned and the switch's message. Switch on: the grid's opening flashed the flyout once and created the window (13 buttons), Overflow shown. Then TrayDump 13 in the overflow, exit 0, and the GUI test passed.
+- Known limits, not seen here (code review): while Explorer starts, a read can find the tray pane before its arrow and return an empty overflow for that read (the old icons' buttons are gone by then anyway); the switch off with every icon on reads as an error although nothing is hidden (the message says "hidden icons, if any").
+
 ## Open questions for the spike (To do 2)
 - Overflow, step B: answered in "Spike step B". The hidden list is live; it doesn't exist after an Explorer start until the flyout opens once; its order matched the open flyout (owner, 2026-11-14).
 - Right click: does `IUIAutomationElement3::ShowContextMenu` (COM UI Automation; not in the .NET System.Windows.Automation wrapper) open the app's menu? Otherwise a simulated right-click on the real icon. Step D: yes, also for overflow icons while the flyout is closed (Discord's menu, measured); no simulated click needed. Details in "Spike step D".

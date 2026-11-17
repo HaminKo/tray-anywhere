@@ -1,7 +1,7 @@
 ## Where we are
 - Now: Before a public release (no to-dos open)
 - Next: none
-- Updated: 2026-11-16
+- Updated: 2026-11-17
 
 ## To do
 Next number: 12. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
@@ -11,7 +11,6 @@ Next number: 12. Numbers are permanent: never renumber or reuse one; to move a t
 ### Bugs me
 
 ### Someday
-- To do 6: When no icons are hidden, read an empty overflow instead of failing (small; user 2026-11-14): docs/todo/06-no-hidden-icons.md
 
 ## Later, only if the user asks
 - Live pictures for overflow icons (the exact current image, e.g. a changing badge). v1 draws taskbar icons live and uses Windows' stored snapshot for overflow icons (To do 2 step C).

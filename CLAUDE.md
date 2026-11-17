@@ -38,7 +38,7 @@ Now and next: the "Where we are" block at the top of docs/todo.md.
 Reasons, who decided and what was rejected: docs/decisions.md.
 - C# on .NET 10 with WinForms; no NuGet packages.
 - The grid opens with a global hotkey and with a small floating button, on the monitor the mouse is on.
-- Refresh: read everything when the grid opens; while it is open, re-read all icons every 2 s while the mouse is over the grid, else every 10 s (checked every 0.5 s). The overflow is read from its hidden window; the flyout is opened only once, when Explorer hasn't created that window yet, never by the refresh.
+- Refresh: read everything when the grid opens; while it is open, re-read all icons every 2 s while the mouse is over the grid, else every 10 s (checked every 0.5 s). The overflow is read from its hidden window; the flyout is opened only once, when Explorer hasn't created that window yet, never by the refresh. No window and no arrow: an empty overflow, or an error naming Settings' "Hidden icon menu" while that is off.
 - Clicks act on the tray button itself (Invoke; ShowContextMenu through COM UI Automation), not a simulated mouse click; overflow icons without opening the flyout.
 - An icon's program and stored picture: matched to Windows' tray list by name, then by order; where extra programs run, only those Explorer shows an icon for take part, else no program (generic picture beats a wrong one).
 - Settings in `$env:APPDATA\tray-anywhere\settings.json`; autostart via the per-user Run registry key, set by Start with Windows in the right-click menu for the running copy, which runs every day from `publish/`; a click there wins over a \"turned off\" in Task Manager's Startup apps.

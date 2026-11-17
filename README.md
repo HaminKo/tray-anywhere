@@ -59,6 +59,7 @@ To update, choose Exit and run both lines again; the setting stays.
 - Icon pictures may look a little different from the real tray icons.
 - The floating button stays on top, so it covers a corner of the window under it, also over full-screen video. Drag it somewhere else if it is in the way.
 - A Windows update can change how the taskbar is built and break icon detection until tray-anywhere is updated.
+- With Windows' "Hidden icon menu" turned off (Settings > Personalization > Taskbar > Other system tray icons), hidden icons can't be read after Windows restarts the taskbar. Turn it back on to see them.
 
 ## Credits
 - [.NET](https://dotnet.microsoft.com) and WinForms by Microsoft, MIT license.

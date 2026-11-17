@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows;
 using System.Windows.Automation;
+using Microsoft.Win32;
 
 namespace Tray;
 
@@ -33,6 +34,12 @@ public static class Taskbar
     // The overflow arrow's name. Nothing else tells it apart from the input indicators
     // (measured), so this only works while Windows' display language is English.
     private const string OverflowArrowName = "Show Hidden Icons";
+
+    // Settings' "Hidden icon menu" switch (Personalization > Taskbar > Other system tray
+    // icons): 1 while on, 0 while off. Off removes the arrow but leaves the hidden icons
+    // hidden. Undocumented; found by a registry search (measured on build 26300).
+    private const string TrayNotifyKey = @"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\TrayNotify";
+    private const string HiddenIconMenuValue = "SystemTrayChevronVisibility";
 
     // App icons and Windows' own tray buttons have these AutomationIds.
     private const string AppIconId = "NotifyItemIcon";
@@ -62,14 +69,35 @@ public static class Taskbar
     // opened once. With openIfMissing, this then opens and closes the flyout (a flash of
     // about 0.2 s; the keyboard focus moves to the taskbar) and sets openedFlyout. Pass
     // false when reading every few seconds, so a failure can't flash it again and again.
+    // With no window and no arrow, nothing is hidden: returns an empty list, unless Settings'
+    // "Hidden icon menu" is off: then hidden icons can't be read, and it throws.
     // Throws InvalidOperationException that names the part it could not find.
     public static List<TrayItem> ReadOverflowItems(bool openIfMissing, out bool openedFlyout)
     {
         openedFlyout = false;
-        if (openIfMissing && FindWindowEx(IntPtr.Zero, IntPtr.Zero, OverflowWindowClass, null) == IntPtr.Zero)
+        if (FindWindowEx(IntPtr.Zero, IntPtr.Zero, OverflowWindowClass, null) == IntPtr.Zero)
         {
-            OpenAndCloseOverflow();
-            openedFlyout = true;
+            // Windows removes the arrow when every icon is on the taskbar, and also while
+            // the "Hidden icon menu" switch is off, which leaves the hidden icons hidden.
+            // Without the arrow nothing can make Explorer create the window (measured).
+            // The arrow is found by its name, so on a Windows in another language this
+            // also reads as "nothing hidden" (accepted: docs/decisions.md).
+            var arrow = FindArrow();
+            if (arrow == null)
+            {
+                if (HiddenIconMenuIsOff())
+                {
+                    throw new InvalidOperationException(
+                        "Windows' \"Hidden icon menu\" is off, so hidden icons, if any, can't be read "
+                        + "(Settings > Personalization > Taskbar > Other system tray icons).");
+                }
+                return [];
+            }
+            if (openIfMissing)
+            {
+                OpenAndCloseOverflow(arrow);
+                openedFlyout = true;
+            }
         }
 
         // UI Automation doesn't walk down into a hidden window, so find the pane's own
@@ -95,16 +123,27 @@ public static class Taskbar
             ?? throw new InvalidOperationException($"UI Automation found no {TrayPaneClass} under Shell_TrayWnd.");
     }
 
+    // The overflow arrow on the primary taskbar, found by its name; null if there is none.
+    private static AutomationElement? FindArrow()
+    {
+        var isArrow = new PropertyCondition(AutomationElement.NameProperty, OverflowArrowName);
+        return FindTrayPane(FindTaskbar()).FindFirst(TreeScope.Children, isArrow);
+    }
+
+    // Whether Settings' "Hidden icon menu" switch is off. A missing value (a Windows
+    // without the switch) counts as on.
+    private static bool HiddenIconMenuIsOff()
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(TrayNotifyKey);
+        return key?.GetValue(HiddenIconMenuValue) is int value && value == 0;
+    }
+
     // Opens the flyout by invoking the overflow arrow, waits until the overflow window
     // shows (124 ms on a first opening, measured), then invokes the arrow again, which
     // closes it. The window then stays, hidden. Waits at most 3 s, far more than measured,
     // so that a slow opening isn't left open on screen; then throws.
-    private static void OpenAndCloseOverflow()
+    private static void OpenAndCloseOverflow(AutomationElement arrow)
     {
-        var isArrow = new PropertyCondition(AutomationElement.NameProperty, OverflowArrowName);
-        var arrow = FindTrayPane(FindTaskbar()).FindFirst(TreeScope.Children, isArrow)
-            ?? throw new InvalidOperationException(
-                $"Found no tray button named \"{OverflowArrowName}\" (the overflow arrow; its name follows Windows' display language).");
         var invoke = (InvokePattern)arrow.GetCurrentPattern(InvokePattern.Pattern);
         invoke.Invoke();
 
