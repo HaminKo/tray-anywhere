@@ -1,23 +1,23 @@
 ## Where we are
-- Now: Before a public release (no to-dos open)
+- Now: No to-dos open (pick one from Someday, or Before a public release)
 - Next: none
 - Updated: 2026-11-17
 
 ## To do
-Next number: 12. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
+Next number: 17. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
 
 ### Bugs me
 
 ### Someday
+- To do 12: Live pictures for overflow icons (medium; user 2026-11-17): docs/todo/12-live-overflow-pictures.md
+- To do 13: Notification balloons and toasts from tray apps (large; user 2026-11-17): docs/todo/13-notifications.md
+- To do 14: Drag to reorder icons (medium; user 2026-11-17): docs/todo/14-drag-to-reorder.md
+- To do 15: An installer (small; user 2026-11-17): docs/todo/15-installer.md
+- To do 16: A settings window (medium; user 2026-11-17): docs/todo/16-settings-window.md
 
 ## Later, only if the user asks
-- Live pictures for overflow icons (the exact current image, e.g. a changing badge). v1 draws taskbar icons live and uses Windows' stored snapshot for overflow icons (To do 2 step C).
-- Notification balloons and toasts from tray apps.
-- Drag to reorder icons.
-- An installer.
-- A settings window (v1 uses a small right-click menu on the floating button, plus the settings file).
 
 ## Writing a to-do
 - Number: the "Next number" (then raise that line by one). The line goes under Someday, unless the user says it bugs them or wants it soon: then under Bugs me where the user says (at most 5 there, so ask which one drops back to Someday), and "Next:" and "Updated:" in "Where we are" change with it.
