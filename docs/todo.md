@@ -1,7 +1,7 @@
 ## Where we are
 - Now: No to-dos open (pick one from Someday, or Before a public release)
 - Next: none
-- Updated: 2026-11-17
+- Updated: 2026-11-18
 
 ## To do
 Next number: 17. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
@@ -11,7 +11,6 @@ Next number: 17. Numbers are permanent: never renumber or reuse one; to move a t
 ### Bugs me
 
 ### Someday
-- To do 12: Live pictures for overflow icons (medium; user 2026-11-17): docs/todo/12-live-overflow-pictures.md
 - To do 13: Notification balloons and toasts from tray apps (large; user 2026-11-17): docs/todo/13-notifications.md
 - To do 14: Drag to reorder icons (medium; user 2026-11-17): docs/todo/14-drag-to-reorder.md
 - To do 15: An installer (small; user 2026-11-17): docs/todo/15-installer.md

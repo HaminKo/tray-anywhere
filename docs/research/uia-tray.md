@@ -134,7 +134,7 @@ Method: read-only PowerShell probes (registry, processes, COM, PrintWindow), com
 - **UI Automation**: every supported property of an app button and its `Image` child, dumped: nothing names the owner (ProcessId is explorer's; RuntimeId is opaque).
 - **Win32**: `TrayNotifyWnd` has no child windows on this build, so the Windows 10 way (a `ToolbarWindow32` with each icon's window handle and ID) is gone.
 - **Screen copy** (`CopyFromScreen` of the tray area): returned a full-screen window that covered the taskbar at the time, not the icons.
-- **The hidden overflow window** has a 0x0 rectangle: `PrintWindow` has nothing to render.
+- **The hidden overflow window** has a 0x0 rectangle: `PrintWindow` has nothing to render. Partly wrong (2026-11-18): once the flyout has been opened, the hidden window keeps a rectangle, but `PrintWindow` draws it black, also when it is shown off-screen. See "To do 12".
 
 ### The open flyout, captured (measured, 13:10)
 - With the owner's OK, a probe opened the flyout, rendered it with `PrintWindow` (it has a rectangle while open: 351x231 here, buttons on a 60 px grid) and cut out each button's `Image` child. Real order: Discord, Claude, Copilot, New quick note, Phone Link, Google Drive, Task Manager, Safely Remove Hardware, Malwarebytes, Steam, Battle.net, Windows Security.
@@ -328,6 +328,31 @@ No arrow and no window means "nothing hidden" only while the switch is on; the s
 - Owner's test (2026-11-17, the published app): every icon on, no window: the grid showed only Pinned, no problem line, nothing flashed. Switch off, then the 13 icons hidden again (the watcher saw no window appear): Pinned and the switch's message. Switch on: the grid's opening flashed the flyout once and created the window (13 buttons), Overflow shown. Then TrayDump 13 in the overflow, exit 0, and the GUI test passed.
 - Known limits, not seen here (code review): while Explorer starts, a read can find the tray pane before its arrow and return an empty overflow for that read (the old icons' buttons are gone by then anyway); the switch off with every icon on reads as an error although nothing is hidden (the message says "hidden icons, if any").
 
+## 2026-11-18: To do 12: live pictures for overflow icons (build 26300)
+Method: throwaway probes (a .NET 10 console program in a temp folder, not in the repo). A test tray icon of its own (a WinForms `NotifyIcon`, new exe, so it went to the overflow) changed its colour every 6 s and read its own `NotifyIconSettings` entry every second: the snapshot's colour and the subkey's last-write time (`RegQueryInfoKey`). The owner allowed probes to open the flyout and to show Explorer's overflow window off-screen or transparent for a moment. Result: no way found; the to-do closed as not possible (docs/decisions.md 2026-11-18).
+
+### The snapshot is the icon's first picture (measured)
+- The entry, with its `IconSnapshot`, was written 0.1 s after the icon first appeared: a 32x32 PNG of the first picture (red).
+- It was **not rewritten** in 75 s: 12 picture changes (`NIM_MODIFY`), the flyout opened and closed once (the open flyout showed the current colour), the icon removed. A second run of the same exe 2 min later, starting with another colour (a new `NIM_ADD`), and a third 6 min later: still red, same last-write time.
+- So an overflow icon's snapshot shows how the icon looked when Windows first saw that program's icon, which can be long ago (22 of 43 entries were last written on one day in 2025, "Spike step C"). Not tested: whether something else rewrites it (sign-out, an Explorer restart, a change in Settings); Discord's subkey was rewritten once on 2026-11-14 without its badge in the snapshot.
+
+### ITrayNotify sends nothing (measured)
+- A C# program on an STA thread with a WinForms message loop: `CoCreateInstance(CLSID_TrayNotify)` works and gives the Windows 8+ interface (`ITrayNotifyWin8`, not the Windows 7 one). `RegisterCallback` returns S_OK with handle 0, then **0 calls** to `INotificationCB::Notify` in 85 s, while the test icon appeared, changed 12 times and went away. `UnregisterCallback` S_OK.
+- On Windows 7 (Geoff Chappell's notes) `RegisterCallback` reported every known icon at once, each with its `HICON` and window. On this build the interface is still registered but sends nothing. Confirms "Spike step C" (2 s from PowerShell) with a longer, proper message loop.
+
+### The hidden overflow window can't be made to draw itself (measured)
+- Correction to "Spike step C": the hidden window doesn't always have a 0x0 rectangle. After the flyout has been opened once, it keeps its last one (351x231 here, at the flyout's place) while hidden. `PrintWindow(PW_RENDERFULLCONTENT)` then succeeds but draws plain black. Its input window (`Windows.UI.Input.InputSite.WindowClass`) stays 0x0, and the buttons' `BoundingRectangle` stays empty.
+- Its styles: `WS_POPUP | WS_CLIPSIBLINGS`, extended `WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOREDIRECTIONBITMAP` (composition content, no window bitmap).
+- **Shown off-screen** (`SetWindowPos` at -6000,-6000 with `SWP_SHOWWINDOW | SWP_NOACTIVATE`) for 650 ms: `IsWindowVisible` true, no focus change, but `PrintWindow` plain black at 50, 200 and 600 ms, and the buttons' rectangles stayed empty: the XAML content wasn't laid out or drawn. The same with its input window also sized to 351x231. Afterwards the window was hidden and put back; rectangle and styles read the same as before.
+- **Cloaked** (`DwmSetWindowAttribute(DWMWA_CLOAK)`, which would keep it composed but invisible): E_ACCESSDENIED (0x80070005) from another process, so nothing was shown.
+- **Transparent** (`WS_EX_LAYERED` with alpha 0) not tried: the off-screen run already showed that showing the window doesn't make Explorer lay out its content, so transparency wouldn't change that (inferred), and it would change the styles of Explorer's own window.
+- **Opened by the arrow** (`InvokePattern`, as in "Spike step B"): the buttons get rectangles (60x60) at once, and `PrintWindow` draws the real icons, Discord's red badge and Windows Security's green check included. So only Explorer's own opening draws the content. That is the flash that was already rejected (docs/decisions.md 2026-11-14).
+- Not tried, and why: Windows.Graphics.Capture and DWM thumbnails need a window that draws something, and Windows.Graphics.Capture needs WinRT projections from a NuGet package. Hooking `Shell_NotifyIcon` or reading Explorer's memory needs code injected into Explorer (native code, invasive, not "only what ships with Windows").
+
+### Seen once: the flyout stayed open (measured, cause unknown)
+- In 1 of 3 open-and-close runs (invoke the arrow, wait, invoke again), the second invoke didn't close the flyout. It stayed open for about 30 s until a probe invoked the arrow again. That run came 15 s after the off-screen probe; the next run closed normally. The app's `OpenAndCloseOverflow` does the same two invokes once per Explorer start; no case seen there.
+- Invoke now opens the flyout before it returns: the window was visible at the first check (0 ms; 61 to 124 ms in "Spike step B").
+
 ## Open questions for the spike (To do 2)
 - Overflow, step B: answered in "Spike step B". The hidden list is live; it doesn't exist after an Explorer start until the flyout opens once; its order matched the open flyout (owner, 2026-11-14).
 - Right click: does `IUIAutomationElement3::ShowContextMenu` (COM UI Automation; not in the .NET System.Windows.Automation wrapper) open the app's menu? Otherwise a simulated right-click on the real icon. Step D: yes, also for overflow icons while the flyout is closed (Discord's menu, measured); no simulated click needed. Details in "Spike step D".
@@ -340,5 +365,7 @@ No arrow and no window means "nothing hidden" only while the switch is on; the s
 - IUIAutomationElement3::ShowContextMenu: https://learn.microsoft.com/en-us/windows/win32/api/uiautomationclient/nf-uiautomationclient-iuiautomationelement3-showcontextmenu
 - NotifyIconSettings: no official documentation; own observation on this PC.
 - ITrayNotify and INotificationCB: Chromium's chrome/browser/ui/views/status_icons/status_tray_state_changer_win.h (interface layout as Chromium used it; undocumented by Microsoft).
+- ITrayNotify::RegisterCallback on Windows 7 (reports every known icon at once): Geoff Chappell, https://geoffchappell.com/studies/windows/shell/explorer/interfaces/itraynotify/registercallback.htm
+- DWMWA_CLOAK: https://learn.microsoft.com/en-us/windows/win32/api/dwmapi/ne-dwmapi-dwmwindowattribute
 - PrintWindow and PW_RENDERFULLCONTENT: https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-printwindow
 - Shell_NotifyIconGetRect: https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shell_notifyicongetrect

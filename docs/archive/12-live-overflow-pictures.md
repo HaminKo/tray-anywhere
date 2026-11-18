@@ -23,3 +23,6 @@ A research step first, with a stop rule.
 ## Test
 - Claude: a test icon in the overflow that changes picture; TrayDump `-- pictures` saves the new picture within one read, and the GUI test's grid shows it within one refresh.
 - User: an app with a badge in the overflow (Discord's red dot): the grid shows the badge.
+
+## Progress
+- Step A (2026-11-18), research: no way found; closed as not possible by the stop rule. Windows writes the snapshot only when it first sees the icon; ITrayNotify sends nothing; Explorer's overflow window shown off-screen draws black (only the arrow's opening draws it); cloaking it is refused. Details: docs/research/uia-tray.md "To do 12"; decision: docs/decisions.md 2026-11-18. README's known limitations now name the missing badges.
