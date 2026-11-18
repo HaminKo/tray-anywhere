@@ -2,6 +2,16 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-18: Releases: a zip of the framework-dependent app on GitHub; no installer, not self-contained, not signed
+- Reason: the app needs no install step (settings in AppData, Start with Windows from its menu, runs from any folder), so unzip-and-run is enough. The zip holds what `dotnet publish` makes: 7 files, 136 KB zipped (measured). Visitors install the .NET 10 Desktop Runtime once with winget. The version is in TrayAnywhere.csproj (0.1.0 first) and names the zip and the tag. The zip is built in `release/` (gitignored), since `publish/` is locked while the everyday copy runs. Steps: docs/releasing.md; measurements and sources: docs/research/release.md.
+- Decided by: the owner (Claude's suggestions), To do 15.
+- Rejected:
+  - Installer builders (WiX, Inno Setup, NSIS): third-party software. MSIX: needs the Windows SDK's tools and a certificate that visitors' PCs trust.
+  - Both a zip and an install script (the owner asked "why not both?"): the script would only copy the folder and add a Start menu shortcut, a downloaded .ps1 opens in Notepad on double-click, and it is a second install way to document and test. Revisit if visitors ask for one.
+  - Self-contained (the owner asked "why not?"): can't be built on this PC, because any publish for `win-x64` (also single-file) needs Microsoft's runtime packs from nuget.org and the NuGet config has no sources (NU1100); about 175 MB unzipped (estimated), WinForms can't be trimmed, and its own copy of the runtime gets no security fixes without a new release.
+  - Signing: a certificate costs money. The README says how to get past SmartScreen and names Smart App Control as a known limitation.
+  - GitHub Actions building the release: more moving parts for a 4 s local publish.
+
 ## 2026-11-18: Overflow icons keep Windows' stored snapshot: no live picture (To do 12 closed as not possible)
 - Reason: nothing gives the current picture of a hidden icon without opening the flyout (measured: docs/research/uia-tray.md "To do 12"). Windows writes the snapshot when it first sees a program's icon and didn't rewrite it after 12 picture changes, a flyout opening or a new start of the program. ITrayNotify sends nothing on this build. Explorer's overflow window, shown off-screen, draws plain black, because only Explorer's own opening lays out its content; cloaking it from another process is refused.
 - Decided by: the owner, by the to-do's stop rule (Claude's suggestion), To do 12.

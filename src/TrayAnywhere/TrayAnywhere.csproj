@@ -5,6 +5,9 @@
     <!-- A windowed program: no console window. -->
     <OutputType>WinExe</OutputType>
     <UseWindowsForms>true</UseWindowsForms>
+    <!-- Shown in the exe's Properties > Details; the release zip and tag carry it too
+         (docs/releasing.md). -->
+    <Version>0.1.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Tray\Tray.csproj" />

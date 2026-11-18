@@ -1,0 +1,23 @@
+# Release packaging (To do 15)
+
+What a release zip holds, and why it is framework-dependent. Measured 2026-11-18 on this PC (SDK 10.0.404, runtime 10.0.15) unless marked as an estimate.
+
+## Framework-dependent publish
+- `dotnet publish src/TrayAnywhere -o <folder>`: 7 files (TrayAnywhere.exe, TrayAnywhere.dll, Tray.dll, their two .pdb files, TrayAnywhere.deps.json, TrayAnywhere.runtimeconfig.json), 297 KB. Zipped with PowerShell's `Compress-Archive`: 136 KB (measured, before the version was set).
+- `dotnet publish` builds Release by default (.NET 8 and later; obj\Release is there).
+- With `<Version>0.1.0</Version>`, the zip made by docs/releasing.md is 136,428 bytes, and the exe's product version reads `0.1.0+` and the commit's hash (the SDK adds the commit; measured on the unzipped copy).
+- It needs the .NET 10 Desktop Runtime on the PC. winget id: `Microsoft.DotNet.DesktopRuntime.10` (checked with `winget show`, version 10.0.15).
+- Not tested here (the SDK brings the runtime): what a PC without the runtime shows. .NET's apphost is known to show a dialog that offers the download for a windowed program.
+
+## Self-contained and single-file: can't be built here
+- Any publish with a runtime identifier fails with NU1100 ("Unable to resolve 'Microsoft.NETCore.App.Runtime.win-x64 (= 10.0.15)'", also WindowsDesktop and AspNetCore runtime packs): `-r win-x64 --self-contained`, the same with `-p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true`, and also framework-dependent single-file (`-p:PublishSingleFile=true -p:RuntimeIdentifier=win-x64 -p:SelfContained=false`).
+- Cause: those builds need Microsoft's runtime packs, which come as packages from nuget.org, and this PC's NuGet config has no package sources (`dotnet nuget list source`: "No sources found"). The SDK's own packs folder holds only the reference packs and the win-x64 app host.
+- Size of a self-contained build, estimated from the installed runtime folders it would copy: Microsoft.NETCore.App 78.6 MB (188 files) + Microsoft.WindowsDesktop.App 97.3 MB (78 files), so about 175 MB unzipped. WinForms doesn't support trimming (error NETSDK1175), so it can't be made much smaller.
+- A self-contained app carries its own runtime, which Windows and winget don't update: each .NET security fix would need a new release.
+
+## Unsigned exe
+- SmartScreen: an unsigned exe downloaded from the internet gets "Windows protected your PC"; More info, then Run anyway, runs it.
+- Smart App Control (Windows Security > App & browser control), when on, blocks unsigned apps it has no reputation for, and Windows has no way to allow one app; Microsoft suggests turning it off or asking the developer to sign. Source: [What is Smart App Control? (Microsoft Support)](https://support.microsoft.com/en-us/topic/what-is-smart-app-control-285ea03d-fa88-4d56-882e-6698afdb7003). Not seen on this PC.
+
+## An install script beside the zip (not built)
+- Windows opens a downloaded .ps1 in Notepad on double-click; running it needs "Run with PowerShell" or an execution-policy change. It would only copy the folder and add a Start menu shortcut.

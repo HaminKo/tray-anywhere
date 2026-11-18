@@ -6,5 +6,6 @@ docs/local.md
 bin/
 obj/
 publish/
+release/
 *.user
 .vs/

@@ -13,7 +13,6 @@ Next number: 17. Numbers are permanent: never renumber or reuse one; to move a t
 ### Someday
 - To do 13: Notification balloons and toasts from tray apps (large; user 2026-11-17): docs/todo/13-notifications.md
 - To do 14: Drag to reorder icons (medium; user 2026-11-17): docs/todo/14-drag-to-reorder.md
-- To do 15: An installer (small; user 2026-11-17): docs/todo/15-installer.md
 - To do 16: A settings window (medium; user 2026-11-17): docs/todo/16-settings-window.md
 
 ## Later, only if the user asks
@@ -36,3 +35,4 @@ Every to-do is its own file, docs/todo/NN-name.md (two-digit number, short name)
 - The README follows the "README" rule in ~/.claude/CLAUDE.md: short plain sentences, details in docs/, no section longer than about a screen.
 - A screenshot of the grid in the README.
 - Start CHANGELOG.md (Keep a Changelog: Unreleased first, then versions newest first) with the first version.
+- Publish the first GitHub release (0.1.0) by docs/releasing.md, after the license and the README screenshot.

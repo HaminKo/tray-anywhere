@@ -27,7 +27,7 @@ Don't build what's under "Later" in docs/todo.md until asked.
   - Once per step: `dotnet format --verify-no-changes`, ~11 s; and, from To do 2 on, the tray dump on the live taskbar: `dotnet run --project src/TrayDump`.
   - Once per step, each its own call: the GUI test, `dotnet run --project src/GuiTest`, ~30 s (exit 0; runs beside the owner's tray-anywhere; needs a secondary monitor). A UI change gets a step in it (src/GuiTest/Program.cs), in the same build step.
   - Screenshots, only for a step that changes the look: `dotnet run --project src/GuiTest -- screenshots [DISPLAYn]`, ~10 s, needs a secondary monitor and tray-anywhere not running: ask the owner to Exit it. The grid with its button per secondary monitor, `$env:TEMP\tray-anywhere-gui\grid-DISPLAYn.png` (paths printed), ~300 tokens for both (estimate).
-- Docs to update when behaviour changes: README.md (headline features, build and run, autostart, known limitations, Credits) and the docs/ pages it links to; docs/research/uia-tray.md when the taskbar's UI Automation tree or the reading code changes.
+- Docs to update when behaviour changes: README.md (headline features, install, how to use, Start with Windows, build from source, known limitations, Credits) and the docs/ pages it links to; docs/research/uia-tray.md when the taskbar's UI Automation tree or the reading code changes.
 - Must keep working: `dotnet run --project src/TrayDump` lists every icon on the primary taskbar's tray and in the overflow, with each app icon's program (exit code 0; 1 if a read fails); `-- click N` / `-- rclick N` then left- or right-click icon N, overflow icons included, without opening the flyout. `dotnet run --project src/TrayAnywhere`: Alt+` opens the grid ("Pinned", "Overflow") on the mouse's monitor and closes it again: on a secondary monitor always at its floating button, where the button's arrow points (^ above, v below in the monitor's top half); on the main monitor bottom right, or where it was last dragged there; each secondary monitor's button does the same and has Start with Windows and Exit on right-click; there the button and the open grid move together while either is dragged; the buttons' places and the main monitor's grid place are kept in settings.json across restarts; the grid stays on top; its X and Escape close it, a click elsewhere doesn't; left and right clicks on its icons reach the real ones; while open it follows icons that come and go; Steam's tray menu opens at the click on every monitor; right-click on its background: the same menu; Start with Windows ticked writes the running exe to the per-user Run key, unticked deletes it; it shows no tick while Task Manager's Startup apps has it turned off, and a click clears that. `dotnet publish src/TrayAnywhere -o publish` makes the folder to run from. The GUI test checks these, except the real Alt+` and mouse (dragging a button, a click elsewhere), Steam's real menu (it checks a window like it), the main monitor's dragged grid place, the grid's menu, signing in with Start with Windows on, and where menus appear: those stay in the user's test checklist when a step touches them.
 - Review checklist: none yet: the built-in code-review skill.
 
@@ -48,15 +48,17 @@ Reasons, who decided and what was rejected: docs/decisions.md.
 - GUI test: works the real app through posted window messages and UI Automation, never the real mouse or keyboard; clicks only a tray icon of its own; writes only to `$env:TEMP\tray-anywhere-gui` and its own registry key HKCU\Software\tray-anywhere-gui (the app's `--registry-key`), never Windows' Run or Startup apps keys; runs beside the owner's copy (the app's `--gui-test`: its own lock, no hotkey, and it also moves the test's own window like Steam's menu).
 - Tests run at the app's real speed: no test-only option that shortens its timers or waits.
 - Steam's tray menu, which Steam misplaces on scaled monitors, is moved to the click by a Steam-only mover on a WinEvent hook; no mover for other programs' windows.
+- Releases: a zip of the framework-dependent `dotnet publish` on a GitHub release, version in TrayAnywhere.csproj (docs/releasing.md); no installer, not self-contained, not signed.
 - Implicit usings off; a short hand-written .editorconfig.
 - Grid: Alt+`; dark; app icons only, tooltip on hover; reads the tray before it shows; stays on top until its X, Escape or Alt+`; draggable within its monitor. Floating button: one per secondary monitor.
 
 ## Project docs
-- README.md: for visitors: what it does, build and run, autostart, known limitations, credits.
+- README.md: for visitors: what it does, install, how to use, autostart, build from source, known limitations, credits.
+- docs/releasing.md: how to make a release zip and upload it.
 - docs/local.md: this PC's paths and copy-ready commands (gitignored).
 - docs/todo.md: the to-do list. docs/todo/: one file per to-do. docs/archive/: finished to-dos' files (read only when a to-do names one).
 - docs/decisions.md: decisions with reasons.
-- docs/research/: one file per topic; the taskbar's UI Automation tree is in uia-tray.md, WinForms and per-monitor scaling in winforms-dpi.md, Task Manager's Startup apps marker in startup-apps.md.
+- docs/research/: one file per topic; the taskbar's UI Automation tree is in uia-tray.md, WinForms and per-monitor scaling in winforms-dpi.md, Task Manager's Startup apps marker in startup-apps.md, release packaging in release.md.
 
 ## Never in tracked files
 - Personal paths (the user folder, drive paths): they go in docs/local.md.
