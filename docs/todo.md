@@ -1,6 +1,6 @@
 ## Where we are
-- Now: No to-dos open (pick one from Someday, or Before a public release)
-- Next: none
+- Now: No to-dos open (pick one from Bugs me, or Before a public release)
+- Next: To do 13, 14, 16
 - Updated: 2026-11-18
 
 ## To do
@@ -9,11 +9,11 @@ Next number: 17. Numbers are permanent: never renumber or reuse one; to move a t
 ### Now
 
 ### Bugs me
-
-### Someday
 - To do 13: Notification balloons and toasts from tray apps (large; user 2026-11-17): docs/todo/13-notifications.md
 - To do 14: Drag to reorder icons (medium; user 2026-11-17): docs/todo/14-drag-to-reorder.md
 - To do 16: A settings window (medium; user 2026-11-17): docs/todo/16-settings-window.md
+
+### Someday
 
 ## Later, only if the user asks
 
