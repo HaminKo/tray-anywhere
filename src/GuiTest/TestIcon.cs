@@ -37,6 +37,10 @@ internal sealed class TestIcon : IDisposable
     // That window, from the last right click.
     public SteamLikeMenu? Menu { get; private set; }
 
+    // A balloon from the icon, as old tray programs show one; Windows shows it as a
+    // notification popup (a toast).
+    public void ShowBalloon(string text) => icon.ShowBalloonTip(5000, Name, text, ToolTipIcon.None);
+
     // Takes the icon out of the tray, and closes its window like Steam's menu.
     public void Dispose()
     {

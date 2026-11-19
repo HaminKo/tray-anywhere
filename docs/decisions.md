@@ -2,6 +2,18 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-18: Windows' notification popups move to the mouse's secondary monitor: a mover only for the shell's toast window
+- What: the app finds the shell's one toast window (class `Windows.UI.Core.CoreWindow`, title "New notification", process ShellExperienceHost) and hooks that process's "moved" events (out of context, as SteamMenu). While it shows a toast, the app keeps it (moves, no resize) at the bottom right of the free area of the mouse's monitor, further left by the scales' ratio, and corrects every later move; on the main monitor that is the shell's own place. First it moved the window only off the main monitor and then left it alone, but the shell sometimes moved it again, below the screen (owner's test). Every app's toasts and tray balloons: one window shows them all. Always on, no setting. This widens the 2026-11-16 Steam-only mover: a second mover, for this one window only.
+- Reason: Windows shows toasts on the main monitor only. Measured (docs/research/notifications.md): the window can be moved from another process, stays and draws at the new monitor's scale; the shell moves it back for each new toast, and the hook reports each move. The filter is exact (class, title, process), unlike "any program's menu", rejected on 2026-11-16 for want of one.
+- Decided by: the owner (Claude's suggestions), To do 13.
+- Open: while a full-screen program covers the main monitor, Windows shows no toast at all (Do Not Disturb), so nothing moves. The owner tries Windows' switch "When using an app in full-screen mode" by hand; the app changes no Windows setting.
+- Rejected:
+  - A copy of each toast in tray-anywhere, read with UserNotificationListener (works during Do Not Disturb, and allowed for an unpackaged program, measured): .NET 10 needs Microsoft's Windows SDK projection (a NuGet download, against the no-NuGet rule) or hand-written COM interop for WinRT; and a copy's buttons wouldn't work.
+  - Reading the toast's text with UI Automation for a copy: only while the toast shows, so not during Do Not Disturb, the case a copy would be for.
+  - Only tray apps' toasts: a mover can't choose, one window shows them all.
+  - Resizing the window to the new monitor's scale: the shell doesn't lay the toast out again, so it is cut off (measured).
+  - A hook on every program's "moved" events: it would also get every move of the mouse pointer; the hook is for the shell's process only, found again every 5 s.
+
 ## 2026-11-18: Releases: a zip of the framework-dependent app on GitHub; no installer, not self-contained, not signed
 - Reason: the app needs no install step (settings in AppData, Start with Windows from its menu, runs from any folder), so unzip-and-run is enough. The zip holds what `dotnet publish` makes: 7 files, 136 KB zipped (measured). Visitors install the .NET 10 Desktop Runtime once with winget. The version is in TrayAnywhere.csproj (0.1.0 first) and names the zip and the tag. The zip is built in `release/` (gitignored), since `publish/` is locked while the everyday copy runs. Steps: docs/releasing.md; measurements and sources: docs/research/release.md.
 - Decided by: the owner (Claude's suggestions), To do 15.

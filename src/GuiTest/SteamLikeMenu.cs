@@ -49,14 +49,7 @@ internal sealed class SteamLikeMenu : IDisposable
 
     private readonly IntPtr handle;
 
-    public Rectangle Bounds
-    {
-        get
-        {
-            Win32.GetWindowRect(handle, out var r);
-            return Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
-        }
-    }
+    public Rectangle Bounds => Win32.Bounds(handle);
 
     public void Dispose() => DestroyWindow(handle);
 

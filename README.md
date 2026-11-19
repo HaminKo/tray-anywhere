@@ -29,6 +29,8 @@ Each monitor other than the main one also gets a small button with an arrow, jus
 
 Where you dragged the buttons and the popup is kept in `$env:APPDATA\tray-anywhere\settings.json`.
 
+Windows' notifications (and tray apps' balloons) also follow the mouse: while it is on another monitor, they show at that monitor's bottom right instead of the main one's.
+
 ## Start with Windows
 Right-click a floating button or the popup's background and choose Start with Windows. Windows now starts tray-anywhere from its folder each time you sign in. Choose it again to turn it off. If you move the folder, choose it again from the new place.
 
@@ -78,6 +80,8 @@ How the release zip is made: [docs/releasing.md](docs/releasing.md).
 - The floating button stays on top, so it covers a corner of the window under it, also over full-screen video. Drag it somewhere else if it is in the way.
 - tray-anywhere isn't signed. With Smart App Control turned on (Windows Security > App & browser control), Windows may block it, and Windows has no way to allow a single app there.
 - A Windows update can change how the taskbar is built and break icon detection until tray-anywhere is updated.
+- While a full-screen app or game runs on the main monitor, Windows shows no notifications at all (Do Not Disturb turns on by itself), so there is nothing to move. Settings > System > Notifications > "Turn on do not disturb automatically" can change that, but then notifications also show over your game.
+- Moving notifications works only on English Windows: tray-anywhere finds Windows' notification window by its English title.
 - With Windows' "Hidden icon menu" turned off (Settings > Personalization > Taskbar > Other system tray icons), hidden icons can't be read after Windows restarts the taskbar. Turn it back on to see them.
 
 ## Credits

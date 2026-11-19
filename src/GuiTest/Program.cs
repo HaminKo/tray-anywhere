@@ -138,11 +138,56 @@ internal static class Program
     {
         using var app = new TestedApp(settingsPath);
         var buttons = CheckButtons(app, monitors, savedPlace);
+        ToastToMouse();
         OpenAndClose(app, buttons, monitors);
         var grid = TestIconInGrid(app, buttons[0], monitors[0]);
         var draggedPlace = DragGrid(grid, buttons[0], monitors[0], settingsPath);
         CloseGrid(app, grid, buttons[0], monitors[0]);
         return draggedPlace;
+    }
+
+    // A notification popup goes to the monitor the mouse is on. The test's own tray icon
+    // shows a balloon, which Windows shows as a toast in one window of its shell, at the
+    // bottom right of the main monitor. With the mouse on a secondary monitor, the app
+    // moves that window to the bottom right of that monitor's free area, further left by
+    // the scales' ratio (docs/research/notifications.md); with the mouse on the main
+    // monitor, it stays. The user's copy, if it runs, may be the one that moves it: both
+    // move it the same way. Skipped while Windows shows no popup: a full-screen program,
+    // Do Not Disturb, or notifications turned off for the test's icon. Those are Windows'
+    // doing, not the app's.
+    private static void ToastToMouse()
+    {
+        const string what = "a notification goes to the monitor the mouse is on";
+        if (Win32.SHQueryUserNotificationState(out var state) != 0 || state != Win32.QunsAcceptsNotifications)
+        {
+            Skipped($"{what}: Windows shows no notifications now (a full-screen program or Do Not Disturb; state {state})");
+            return;
+        }
+        var toast = Win32.FindWindow(Win32.ToastClass, Win32.ToastTitle);
+        Check(toast != IntPtr.Zero, $"Windows' notification window is there (class {Win32.ToastClass}, title \"{Win32.ToastTitle}\")", "not found");
+        var mouse = Screen.FromPoint(Cursor.Position);
+        using var icon = new TestIcon();
+        icon.ShowBalloon("A notification for the GUI test");
+        var bounds = Rectangle.Empty;
+        try
+        {
+            WaitUntil("a balloon from the test's tray icon shows as a notification", () => (bounds = Win32.Bounds(toast)).Height > 0);
+        }
+        catch (CheckFailed)
+        {
+            Skipped($"{what}: Windows showed no popup for the balloon (Do Not Disturb, or notifications off for the test's icon)");
+            return;
+        }
+        if (!Screen.FromPoint(Cursor.Position).Equals(mouse))
+        {
+            Skipped($"{what}: the mouse went to another monitor meanwhile");
+            return;
+        }
+        var main = Screen.PrimaryScreen!;
+        var area = mouse.WorkingArea;
+        var width = (int)Math.Round(bounds.Width * Win32.ScaleOf(mouse) / Win32.ScaleOf(main));
+        var expected = new Point(area.Right - width, area.Bottom - bounds.Height);
+        WaitUntil($"{what} ({Key(mouse)})", () => Win32.Bounds(toast).Location == expected, seconds: 2, () => $"at {Win32.Bounds(toast)}, expected {expected}");
     }
 
     // Started again, the button is where it was dragged, Start with Windows in its

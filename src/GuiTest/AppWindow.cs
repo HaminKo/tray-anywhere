@@ -28,14 +28,7 @@ internal sealed class AppWindow
 
     // The window's rectangle as the app places it (a form's Bounds), in physical pixels.
     // For the grid that includes Windows' invisible border around its frame.
-    public Rectangle Bounds
-    {
-        get
-        {
-            GetWindowRect(Handle, out var r);
-            return Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
-        }
-    }
+    public Rectangle Bounds => Win32.Bounds(Handle);
 
     // The window as it shows on screen: for the grid a few pixels inside Bounds, without
     // the invisible border Windows puts around a frame for resizing. The same as Bounds

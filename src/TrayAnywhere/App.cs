@@ -42,6 +42,8 @@ internal sealed class App : ApplicationContext
     private bool opening;
     // Moves Steam's tray menu to the click when Steam opens it far away.
     private readonly SteamMenu steamMenu;
+    // Moves Windows' notification popups to the monitor the mouse is on.
+    private readonly ToastMover toastMover = new();
 
     // useHotkey: false for the GUI test's copy, which leaves the keys to the user's copy;
     // its hidden hotkey window is still made, and the test sends it the hotkey's message.
@@ -245,6 +247,7 @@ internal sealed class App : ApplicationContext
             refreshTimer.Dispose();
             hotkey.Dispose();
             steamMenu.Dispose();
+            toastMover.Dispose();
         }
         base.Dispose(disposing);
     }

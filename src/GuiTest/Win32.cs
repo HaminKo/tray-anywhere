@@ -33,6 +33,13 @@ internal static class Win32
     public static readonly IntPtr MessageOnlyParent = new(-3);
     // For DwmGetWindowAttribute: the window's frame as it shows, without the invisible border.
     public const int DwmwaExtendedFrameBounds = 9;
+    // From SHQueryUserNotificationState: Windows shows notification popups now (no
+    // full-screen program, no Do Not Disturb).
+    public const int QunsAcceptsNotifications = 5;
+    // The window of Windows' shell that shows every notification popup, as measured on
+    // English Windows (docs/research/notifications.md).
+    public const string ToastClass = "Windows.UI.Core.CoreWindow";
+    public const string ToastTitle = "New notification";
 
     // A monitor's scaling: 1.0 at 100 %, 1.5 at 150 %. The same way as the app's Dpi.cs,
     // written again here so the test doesn't share a mistake with the app.
@@ -40,6 +47,13 @@ internal static class Win32
     {
         var monitor = MonitorFromPoint(screen.Bounds.Location, MonitorDefaultToNearest);
         return GetDpiForMonitor(monitor, EffectiveDpi, out var dpi, out _) == 0 ? dpi / 96f : 1f;
+    }
+
+    // A window's rectangle, in physical pixels.
+    public static Rectangle Bounds(IntPtr window)
+    {
+        GetWindowRect(window, out var r);
+        return Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
     }
 
     private const uint MonitorDefaultToNearest = 2;
@@ -68,6 +82,12 @@ internal static class Win32
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern IntPtr FindWindowEx(IntPtr parent, IntPtr childAfter, string? className, string? title);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr FindWindow(string className, string title);
+
+    [DllImport("shell32.dll")]
+    public static extern int SHQueryUserNotificationState(out int state);
 
     [DllImport("user32.dll")]
     public static extern uint GetWindowThreadProcessId(IntPtr window, out uint processId);
