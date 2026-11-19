@@ -10,7 +10,8 @@ namespace TrayAnywhere;
 // disposes its menu when it closes.
 internal static class AppMenu
 {
-    public static ContextMenuStrip Create(Autostart autostart)
+    // resetIconOrder: what "Reset icon order" does.
+    public static ContextMenuStrip Create(Autostart autostart, Action resetIconOrder)
     {
         var menu = new ContextMenuStrip();
         // CheckOnClick: a click turns the tick over before Click runs, and UI Automation
@@ -32,6 +33,8 @@ internal static class AppMenu
         // menu may have changed it since, or the change above may have failed.
         menu.Opening += (_, _) => startWithWindows.Checked = autostart.IsOn;
         menu.Items.Add(startWithWindows);
+        // Back to the tray's order, after icons were dragged in the grid.
+        menu.Items.Add("Reset icon order", null, (_, _) => resetIconOrder());
         menu.Items.Add("Exit tray-anywhere", null, (_, _) => Application.Exit());
         return menu;
     }

@@ -83,6 +83,29 @@ internal sealed class AppWindow
         SendMessage(Handle, WmExitSizeMove, IntPtr.Zero, IntPtr.Zero);
     }
 
+    // A drag with the left mouse button, as Windows sends it to a window holding the
+    // mouse: pressed at the window's centre, moved to `to` (a point on screen) and let go
+    // there. Sent, not posted: a tile moves with the mouse, so each message's place in the
+    // window is worked out once the one before it has run.
+    public void MouseDrag(Point to)
+    {
+        var start = Bounds;
+        SendMessage(Handle, WmLButtonDown, new IntPtr(MkLButton), PlaceInWindow(new Point(start.X + start.Width / 2, start.Y + start.Height / 2)));
+        SendMessage(Handle, WmMouseMove, new IntPtr(MkLButton), PlaceInWindow(to));
+        SendMessage(Handle, WmLButtonUp, IntPtr.Zero, PlaceInWindow(to));
+    }
+
+    // A point on screen as a mouse message gives it: from the window's top-left corner
+    // (a tile has no frame), x in the low 16 bits and y in the high ones, either below 0
+    // outside the window.
+    private IntPtr PlaceInWindow(Point screen)
+    {
+        var bounds = Bounds;
+        var x = screen.X - bounds.X;
+        var y = screen.Y - bounds.Y;
+        return new IntPtr((y << 16) | (x & 0xFFFF));
+    }
+
     // UI Automation's Invoke: WinForms runs the control's click, as for Enter or a click.
     public void Invoke() => Invoke(Element);
 

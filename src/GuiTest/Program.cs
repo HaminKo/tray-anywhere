@@ -12,10 +12,18 @@ using static GuiTest.Checks;
 namespace GuiTest;
 
 // The settings file as the app writes it (src/TrayAnywhere/Settings.cs): places measured
-// from each monitor's top-left corner, by the monitor's name (DISPLAY5).
+// from each monitor's top-left corner, by the monitor's name (DISPLAY5). The icon order
+// the app also keeps there is read on its own (SavedOrderLength).
 internal sealed record SettingsFile(Dictionary<string, Offset> ButtonPlaces, Dictionary<string, Offset> GridPlaces);
 
 internal sealed record Offset(int X, int Y);
+
+// Where the test dragged its icon's tile: to the first or the last place of this section
+// ("Pinned" or "Overflow").
+internal sealed record DraggedIcon(string Section, bool Last)
+{
+    public string PlaceName => Last ? "last" : "first";
+}
 
 // The GUI test: starts the real app with a settings file of its own, works it as a user
 // would, and checks what it shows. With "screenshots" it takes pictures of the grid
@@ -104,7 +112,8 @@ internal static class Program
                 // had dragged it there: its grid opens below it.
                 var savedPlace = new Point(first.WorkingArea.X + first.WorkingArea.Width / 2, first.WorkingArea.Y + Px(first, 100));
                 WriteSettings(settingsPath, new(new() { [Key(first)] = ToOffset(first, savedPlace) }, new()));
-                var draggedPlace = FirstRun(settingsPath, monitors, savedPlace);
+                var (draggedPlace, draggedIcon) = FirstRun(settingsPath, monitors, savedPlace);
+                IconOrderAfterRestart(settingsPath, monitors[0], draggedIcon);
                 AfterRestart(settingsPath, monitors, draggedPlace);
                 if (userCopy)
                 {
@@ -132,18 +141,38 @@ internal static class Program
     }
 
     // The app as it starts with the saved place; returns where the first monitor's button
-    // was dragged to. The test ends this copy of the app (TestedApp.Dispose): a menu
-    // opened by a message doesn't show once the app has been in front (see AfterRestart).
-    private static Point FirstRun(string settingsPath, List<Screen> monitors, Point savedPlace)
+    // was dragged to, and where the test's icon was dragged to (null: skipped). The test
+    // ends this copy of the app (TestedApp.Dispose): a menu opened by a message doesn't
+    // show once the app has been in front (see AfterRestart).
+    private static (Point DraggedPlace, DraggedIcon? DraggedIcon) FirstRun(string settingsPath, List<Screen> monitors, Point savedPlace)
     {
         using var app = new TestedApp(settingsPath);
         var buttons = CheckButtons(app, monitors, savedPlace);
         ToastToMouse();
         OpenAndClose(app, buttons, monitors);
-        var grid = TestIconInGrid(app, buttons[0], monitors[0]);
+        var (grid, draggedIcon) = TestIconInGrid(app, buttons[0], monitors[0]);
         var draggedPlace = DragGrid(grid, buttons[0], monitors[0], settingsPath);
         CloseGrid(app, grid, buttons[0], monitors[0]);
-        return draggedPlace;
+        return (draggedPlace, draggedIcon);
+    }
+
+    // Started again, the app shows the test's icon where it was dragged, not where Windows
+    // puts it. The icon is there before the app starts, so the grid's read at opening has
+    // it, or else the next refresh. This copy is ended by the test, as FirstRun's.
+    private static void IconOrderAfterRestart(string settingsPath, Screen monitor, DraggedIcon? dragged)
+    {
+        if (dragged == null)
+        {
+            Skipped("the dragged icon order after a restart: the test's icon wasn't dragged");
+            return;
+        }
+        using var icon = new TestIcon();
+        using var app = new TestedApp(settingsPath);
+        var button = WaitFor($"the app starts again, with its button on {Key(monitor)}", () => app.Buttons().Find(b => IsOn(b, monitor)));
+        button.Click();
+        var grid = WaitForGrid(app, monitor, "the button opens the grid");
+        WaitUntil($"the test's icon is {dragged.PlaceName} in {dragged.Section}, where it was dragged before the restart",
+            () => IsTestIconAt(grid, dragged), seconds: 15, found: () => string.Join(", ", SectionTiles(grid, dragged.Section).Select(tile => tile.Name)));
     }
 
     // A notification popup goes to the monitor the mouse is on. The test's own tray icon
@@ -199,6 +228,7 @@ internal static class Program
         using var app = new TestedApp(settingsPath);
         var buttons = CheckButtons(app, monitors, draggedPlace);
         StartWithWindows(app, buttons[0]);
+        ResetIconOrder(app, buttons[0], settingsPath);
         buttons[0].RightClick();
         var exit = WaitFor("the button's right-click menu opens, with Exit", () => app.MenuItem("Exit tray-anywhere"));
         AppWindow.Invoke(exit);
@@ -234,6 +264,18 @@ internal static class Program
             ticked: true, "a third click deletes that and the Run value", expectedRun: null);
         Check((TestedApp.RunValue(TestedApp.WindowsKey), TestedApp.StartupAppsValue(TestedApp.WindowsKey)) == windowsValues,
             "Windows' own Run and Startup apps values are unchanged", "they changed");
+    }
+
+    // "Reset icon order" in the button's right-click menu empties the saved order of both
+    // sections in settings.json: the tray's order again.
+    private static void ResetIconOrder(TestedApp app, AppWindow button, string settingsPath)
+    {
+        button.RightClick();
+        var item = WaitFor("the button's right-click menu opens, with Reset icon order", () => app.MenuItem("Reset icon order"));
+        AppWindow.Invoke(item);
+        WaitUntil("a click on it empties the saved icon order", () => SavedOrderLength(settingsPath) == 0,
+            found: () => $"{SavedOrderLength(settingsPath)} keys saved");
+        WaitUntil("the menu closes", () => app.MenuItem("Reset icon order") == null);
     }
 
     // Writes the app's value in the test's Startup apps key.
@@ -349,16 +391,18 @@ internal static class Program
 
     // The test's own tray icon shows in the grid at a refresh, a left and then a right
     // click on its tile reach it as such, the window like Steam's menu that the right
-    // click opens far away is moved to the tile, the grid stays open, and the tile goes
-    // when the icon does. Returns the open grid. With the mouse elsewhere, the grid reads the tray
-    // only every 10 s, so the icon shows about 10 s after the grid opened rather than
-    // within 2 s: checked, unless the test saw the mouse over the grid.
-    private static AppWindow TestIconInGrid(TestedApp app, AppWindow button, Screen monitor)
+    // click opens far away is moved to the tile, the grid stays open, a drag moves the tile
+    // (DragTestIcon), and the tile goes when the icon does. Returns the open grid and where
+    // the tile was dragged to (null: skipped). With the mouse elsewhere, the
+    // grid reads the tray only every 10 s, so the icon shows about 10 s after the grid
+    // opened rather than within 2 s: checked, unless the test saw the mouse over the grid.
+    private static (AppWindow, DraggedIcon?) TestIconInGrid(TestedApp app, AppWindow button, Screen monitor)
     {
         button.Click();
         var grid = WaitForGrid(app, monitor, "the button opens the grid again");
         var watch = Stopwatch.StartNew();
         var mouseOver = false;
+        DraggedIcon? dragged;
         using (var icon = new TestIcon())
         {
             var tile = WaitFor("the test's own tray icon shows in the grid at a refresh", () =>
@@ -394,11 +438,62 @@ internal static class Program
             mouseOnGrid |= grid.Bounds.Contains(Cursor.Position);
             CheckSteamMenuMoved(icon, monitor, mouseOnGrid ? null : tileCentre);
             Check(grid.IsOpen, "the grid stays open after clicks on its icons", "it closed");
+            (grid, dragged) = DragTestIcon(app, grid, button, monitor, icon);
         }
         watch.Restart();
         WaitUntil("the tile goes when the icon does", () => TestIconTile(grid) == null, seconds: 15);
         Console.WriteLine($"      (after {watch.Elapsed.TotalSeconds:0.0} s)");
-        return grid;
+        return (grid, dragged);
+    }
+
+    // A drag of the test's icon onto the tile at the other end of its section puts it
+    // there, at that tile's place, without clicking the icon: onto the last tile if it is
+    // first (Windows put a new icon first in the overflow, measured in To do 14), else onto
+    // the first. It is still there in the grid opened again (a new read, sorted by the
+    // saved order). Returns that grid and where the icon went; null if it is the only icon
+    // in its section.
+    private static (AppWindow, DraggedIcon?) DragTestIcon(TestedApp app, AppWindow grid, AppWindow button, Screen monitor, TestIcon icon)
+    {
+        // Closed first: while the test's window like Steam's menu was open, UI Automation
+        // timed out reading the grid's tiles (docs/research/gui-testing.md).
+        icon.CloseMenu();
+        // Found again: a refresh may have laid the grid out anew since.
+        var tile = WaitFor("the test's icon is in the grid", () => TestIconTile(grid));
+        var tiles = SectionTiles(grid, tile.Id);
+        if (tiles.Count < 2)
+        {
+            Skipped($"a drag of the test's icon in {tile.Id}: it is the only icon there");
+            return (grid, null);
+        }
+        var dragged = new DraggedIcon(tile.Id, Last: tiles[0].Name.Contains(TestIcon.Name));
+        var target = (dragged.Last ? tiles[^1] : tiles[0]).Bounds;
+        var clicks = icon.Clicks.Count;
+        tile.MouseDrag(new Point(target.X + target.Width / 2, target.Y + target.Height / 2));
+        // By name and place, not by window: a refresh may lay the grid out anew.
+        WaitUntil($"a drag onto the {dragged.PlaceName} tile in {dragged.Section} puts the test's icon there, at that tile's place",
+            () => IsTestIconAt(grid, dragged) && TestIconTile(grid)?.Bounds == target,
+            found: () => $"the test's icon at {TestIconTile(grid)?.Bounds}, the {dragged.PlaceName} place {target}: " +
+                string.Join(", ", SectionTiles(grid, dragged.Section).Select(t => t.Name)));
+        button.Click();
+        WaitUntil("a click on its button closes the grid", () => app.Grid() == null);
+        button.Click();
+        grid = WaitForGrid(app, monitor, "a second one opens it again, with a new read");
+        WaitUntil($"the test's icon is still {dragged.PlaceName} in {dragged.Section}", () => IsTestIconAt(grid, dragged),
+            found: () => string.Join(", ", SectionTiles(grid, dragged.Section).Select(t => t.Name)));
+        Check(icon.Clicks.Count == clicks, "the drag didn't click the test's icon", $"it got {icon.Clicks.Count - clicks} more clicks");
+        return (grid, dragged);
+    }
+
+    // The tiles of one section, "Pinned" or "Overflow", in their order.
+    private static List<AppWindow> SectionTiles(AppWindow grid, string section) =>
+        TestedApp.Tiles(grid).FindAll(tile => tile.Id == section);
+
+    // True if the test's icon is at the first or last place of its section, as dragged.
+    private static bool IsTestIconAt(AppWindow grid, DraggedIcon dragged)
+    {
+        var tiles = SectionTiles(grid, dragged.Section);
+        var tile = dragged.Last ? tiles.LastOrDefault() : tiles.FirstOrDefault();
+        return tile?.Name.Contains(TestIcon.Name) == true;
     }
 
     // The app moves the test's window like Steam's menu from far away to the click: a
@@ -513,4 +608,20 @@ internal static class Program
 
     private static SettingsFile ReadSettings(string path) =>
         JsonSerializer.Deserialize<SettingsFile>(File.ReadAllText(path)) ?? throw new CheckFailed("settings.json holds null");
+
+    // The number of keys in the icon order settings.json keeps for both sections. A list
+    // the file doesn't have counts as empty, as the app reads it.
+    private static int SavedOrderLength(string path)
+    {
+        using var file = JsonDocument.Parse(File.ReadAllText(path));
+        var length = 0;
+        foreach (var name in new[] { "PinnedOrder", "OverflowOrder" })
+        {
+            if (file.RootElement.TryGetProperty(name, out var keys))
+            {
+                length += keys.GetArrayLength();
+            }
+        }
+        return length;
+    }
 }

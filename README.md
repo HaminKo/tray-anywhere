@@ -23,11 +23,11 @@ To update, choose Exit (see below), unzip the new version into the same folder, 
 To uninstall, turn Start with Windows off, choose Exit and delete the folder. Your settings stay in `$env:APPDATA\tray-anywhere`; delete that folder too if you like.
 
 ## How to use
-Press Alt+` (Alt and the key left of 1): the popup opens on the monitor the mouse is on and stays on top until you close it with its X, Escape or Alt+` again. Left- or right-click an icon in it as you would in the real tray. While it is open it keeps up with icons that come, go or change. Drag its title bar to move it; it opens there next time.
+Press Alt+` (Alt and the key left of 1): the popup opens on the monitor the mouse is on and stays on top until you close it with its X, Escape or Alt+` again. Left- or right-click an icon in it as you would in the real tray. Drag an icon to another place within its section to change the popup's order; it keeps that order, and "Reset icon order" in the right-click menu brings back Windows' order. While it is open it keeps up with icons that come, go or change. Drag its title bar to move it; it opens there next time.
 
 Each monitor other than the main one also gets a small button with an arrow, just above the clock. Click it to open or close the popup where the arrow points. The button and the popup stay together: drag either one and the other comes along. To quit, right-click the button or the popup's background and choose Exit.
 
-Where you dragged the buttons and the popup is kept in `$env:APPDATA\tray-anywhere\settings.json`.
+Where you dragged the buttons, the popup and its icons is kept in `$env:APPDATA\tray-anywhere\settings.json`.
 
 Windows' notifications (and tray apps' balloons) also follow the mouse: while it is on another monitor, they show at that monitor's bottom right instead of the main one's.
 

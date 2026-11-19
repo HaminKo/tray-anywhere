@@ -4,6 +4,7 @@ using System.Drawing;
 using System.IO;
 using System.Text.Json;
 using System.Windows.Forms;
+using Tray;
 
 namespace TrayAnywhere;
 
@@ -20,6 +21,9 @@ internal sealed class Settings
     // new name after it is plugged in again; its places are then forgotten.
     public Dictionary<string, Offset> ButtonPlaces { get; set; } = new();
     public Dictionary<string, Offset> GridPlaces { get; set; } = new();
+    // The grid's icon order in each section, as IconOrder's keys. Empty: the tray's order.
+    public List<string> PinnedOrder { get; set; } = [];
+    public List<string> OverflowOrder { get; set; } = [];
 
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tray-anywhere", "settings.json");
@@ -66,6 +70,30 @@ internal sealed class Settings
 
     public void SetGridPlace(Screen monitor, Point place) => SetPlace(GridPlaces, monitor, place);
 
+    // The saved icon order of a section (Pinned or Overflow).
+    public List<string> OrderOf(TrayItemKind section) => section == TrayItemKind.Pinned ? PinnedOrder : OverflowOrder;
+
+    public void SetOrder(TrayItemKind section, List<string> keys)
+    {
+        if (section == TrayItemKind.Pinned)
+        {
+            PinnedOrder = keys;
+        }
+        else
+        {
+            OverflowOrder = keys;
+        }
+        Save();
+    }
+
+    // Back to the tray's order in both sections.
+    public void ResetOrder()
+    {
+        PinnedOrder = [];
+        OverflowOrder = [];
+        Save();
+    }
+
     // The saved place on this monitor, in screen pixels, or null if there is none. A place
     // written as null in the file also counts as none.
     private static Point? PlaceIn(Dictionary<string, Offset> places, Screen monitor) =>
@@ -99,7 +127,8 @@ internal sealed class Settings
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            // Only a place is lost; the app goes on and tries again at the next drag.
+            // Only a place or an order is lost; the app goes on and tries again at the
+            // next drag.
         }
     }
 }

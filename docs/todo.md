@@ -1,6 +1,6 @@
 ## Where we are
 - Now: No to-dos open (pick one from Bugs me, or Before a public release)
-- Next: To do 14, 16
+- Next: To do 16
 - Updated: 2026-11-19
 
 ## To do
@@ -9,7 +9,6 @@ Next number: 17. Numbers are permanent: never renumber or reuse one; to move a t
 ### Now
 
 ### Bugs me
-- To do 14: Drag to reorder icons (medium; user 2026-11-17): docs/todo/14-drag-to-reorder.md
 - To do 16: A settings window (medium; user 2026-11-17): docs/todo/16-settings-window.md
 
 ### Someday

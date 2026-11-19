@@ -8,7 +8,8 @@ namespace TrayAnywhere;
 
 // One icon in the grid: its picture on a flat button. A Button, so Tab, the arrow keys
 // and Enter work without extra code. A left click or Enter raises Click; a right click
-// or the menu key raises RightClick.
+// or the menu key raises RightClick. Pressed and moved, it follows the mouse within the
+// grid (DragMoved), and the release drops it (Dropped) instead of clicking.
 internal sealed class IconTile : Button
 {
     // Windows sends this after a right click, and for the menu key or Shift+F10 on the
@@ -41,6 +42,21 @@ internal sealed class IconTile : Button
 
     public event Action? RightClick;
 
+    // The user drags the tile: it has just moved with the mouse.
+    public event Action? DragMoved;
+
+    // The user let go of the tile after dragging it.
+    public event Action? Dropped;
+
+    // True from a left press until its release.
+    private bool pressed;
+    // True once the press has moved far enough to be a drag.
+    private bool dragging;
+    // Where in the tile the left button went down; it stays under the mouse during a drag.
+    private Point pressPoint;
+    // True while the release that ends a drag runs: it isn't a click.
+    private bool ignoreClick;
+
     // Shows a new picture. The old one was made for this tile only.
     public void SetPicture(Bitmap picture)
     {
@@ -49,11 +65,97 @@ internal sealed class IconTile : Button
         old?.Dispose();
     }
 
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button == MouseButtons.Left)
+        {
+            pressed = true;
+            dragging = false;
+            pressPoint = e.Location;
+        }
+    }
+
+    // As FloatingButton's drag, but from the message's place in the tile rather than
+    // Cursor.Position, so the GUI test can drag with messages and not the real mouse.
+    // WinForms holds on to the mouse from press to release, so moves keep coming here
+    // even when the mouse is outside the tile.
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        if (!pressed)
+        {
+            return;
+        }
+        var moved = new Size(e.X - pressPoint.X, e.Y - pressPoint.Y);
+        // A small shake while clicking stays a click: Windows' own distance for a drag.
+        var dragSize = SystemInformation.DragSize;
+        if (!dragging && Math.Abs(moved.Width) <= dragSize.Width / 2 && Math.Abs(moved.Height) <= dragSize.Height / 2)
+        {
+            return;
+        }
+        if (!dragging)
+        {
+            dragging = true;
+            // In front of the other tiles while it passes over them.
+            BringToFront();
+        }
+        // The press point under the mouse again, the whole tile inside the grid.
+        var area = Parent!.ClientSize;
+        var place = Location + moved;
+        Location = new Point(Math.Clamp(place.X, 0, area.Width - Width), Math.Clamp(place.Y, 0, area.Height - Height));
+        DragMoved?.Invoke();
+    }
+
+    // Button runs its click inside OnMouseUp when the mouse is over it at the release, as
+    // it is over a dragged tile: ignoreClick keeps that from clicking the tray icon.
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        ignoreClick = dragging;
+        base.OnMouseUp(e);
+        ignoreClick = false;
+        if (e.Button == MouseButtons.Left)
+        {
+            EndPress();
+        }
+    }
+
+    protected override void OnClick(EventArgs e)
+    {
+        if (!ignoreClick)
+        {
+            base.OnClick(e);
+        }
+    }
+
+    // The mouse was taken away during a press (another window took it): a drag ends
+    // where the tile is. After a normal release WinForms lets go of the mouse too, but
+    // OnMouseUp has ended the press by then.
+    protected override void OnMouseCaptureChanged(EventArgs e)
+    {
+        base.OnMouseCaptureChanged(e);
+        EndPress();
+    }
+
+    private void EndPress()
+    {
+        pressed = false;
+        if (dragging)
+        {
+            dragging = false;
+            Dropped?.Invoke();
+        }
+    }
+
     protected override void WndProc(ref Message m)
     {
         if (m.Msg == WmContextMenu)
         {
-            RightClick?.Invoke();
+            // Not during a drag: a drag never clicks the tray icon.
+            if (!dragging)
+            {
+                RightClick?.Invoke();
+            }
             return;
         }
         base.WndProc(ref m);

@@ -13,12 +13,13 @@ internal static class Win32
     public const int WmKeyDown = 0x0100;
     public const int WmKeyUp = 0x0101;
     public const int WmSysCommand = 0x0112;
+    public const int WmMouseMove = 0x0200;
     public const int WmLButtonDown = 0x0201;
     public const int WmLButtonUp = 0x0202;
     public const int WmEnterSizeMove = 0x0231;
     public const int WmExitSizeMove = 0x0232;
     public const int WmHotkey = 0x0312;
-    // With WM_LBUTTONDOWN: the left mouse button is down.
+    // With WM_LBUTTONDOWN and WM_MOUSEMOVE: the left mouse button is down.
     public const int MkLButton = 0x1;
     public const int VkEscape = 0x1B;
     // With WM_SYSCOMMAND: what a click on a window's X sends.

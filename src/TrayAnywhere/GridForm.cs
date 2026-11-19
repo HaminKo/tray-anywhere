@@ -13,8 +13,9 @@ namespace TrayAnywhere;
 // The grid: the app icons in "Pinned" (shown on the taskbar) and "Overflow" (behind the
 // arrow), with each icon's tooltip text on hover. It stays on top until its X, Escape,
 // the hotkey or its floating button closes it, and can be dragged by its title bar within
-// its monitor (owner's choice). A new grid is made each time it opens, laid out at the
-// scale of the monitor it opens on.
+// its monitor (owner's choice). Its tiles can be dragged into another order within their
+// section; App saves that order and sorts each read by it. A new grid is made each time it
+// opens, laid out at the scale of the monitor it opens on.
 internal sealed class GridForm : Form
 {
     // Sizes at 100 % scaling, in pixels. The icon is the tray's own size; the tile is the
@@ -60,8 +61,13 @@ internal sealed class GridForm : Form
     // using Labels: WinForms resizes a Label's font when the window's DPI changes, and
     // that happens as the grid opens on the 100 % monitor (logged; see OnLoad).
     private readonly List<Caption> captions = [];
-    // The tiles: the Pinned icons, then the Overflow icons, in the order of `shown`.
-    private readonly List<IconTile> tiles = [];
+    // The sections shown, Pinned first; an empty one is left out.
+    private readonly List<Section> sections = [];
+    // The number of tiles in a row, the same in both sections.
+    private int columns;
+    // The tile the user drags, or null; and its place in its section when the drag began.
+    private IconTile? dragged;
+    private int draggedFrom;
     // The read the grid shows now.
     private TrayState shown = TrayState.Empty;
 
@@ -121,6 +127,9 @@ internal sealed class GridForm : Form
     // button, the button has moved along.
     public event Action<Point>? Dragged;
 
+    // The user dragged a tile to another place: the section's icons in their new order.
+    public event Action<TrayItemKind, List<TrayItem>>? Reordered;
+
     // Where the grid was when the user pressed on its title bar.
     private Point dragStart;
 
@@ -141,9 +150,14 @@ internal sealed class GridForm : Form
     // tooltip did, so a tooltip being read or the hover border doesn't go away at every
     // refresh. Otherwise the grid is laid out again, on the same monitor: in its corner or
     // above its button it grows up and to the left, below its button down and to the left;
-    // once dragged it keeps its top-left corner.
+    // once dragged it keeps its top-left corner. Not while the user drags a tile: a new
+    // layout would take the tile from under the mouse; the next refresh comes within 2 s.
     public void ShowState(TrayState state)
     {
+        if (dragged != null)
+        {
+            return;
+        }
         TopWindow.KeepOnTop(this);
         if (state.Pinned.Count != shown.Pinned.Count || state.Overflow.Count != shown.Overflow.Count || state.Problem != shown.Problem)
         {
@@ -155,6 +169,7 @@ internal sealed class GridForm : Form
             return;
         }
         var items = state.Pinned.Concat(state.Overflow).ToList();
+        var tiles = AllTiles();
         for (var i = 0; i < tiles.Count; i++)
         {
             UpdateTile(tiles[i], items[i]);
@@ -304,47 +319,45 @@ internal sealed class GridForm : Form
         // The tooltips first, so the ToolTip doesn't hold on to disposed tiles. Dispose
         // also takes a tile out of the grid's Controls.
         toolTip.RemoveAll();
-        foreach (var tile in tiles)
+        foreach (var tile in AllTiles())
         {
             tile.Dispose();
         }
-        tiles.Clear();
+        sections.Clear();
         captions.Clear();
         shown = state;
 
-        var columns = Math.Clamp(Math.Max(state.Pinned.Count, state.Overflow.Count), MinColumns, MaxColumns);
+        columns = Math.Clamp(Math.Max(state.Pinned.Count, state.Overflow.Count), MinColumns, MaxColumns);
         var top = Px(EdgeSpace);
-        top = AddSection("Pinned", state.Pinned, columns, top);
-        top = AddSection("Overflow", state.Overflow, columns, top);
+        top = AddSection("Pinned", TrayItemKind.Pinned, state.Pinned, top);
+        top = AddSection("Overflow", TrayItemKind.Overflow, state.Overflow, top);
         var noIcons = state.Pinned.Count == 0 && state.Overflow.Count == 0;
         var problem = state.Problem ?? (noIcons ? "No tray icons found." : null);
         if (problem != null)
         {
-            top = AddProblem(problem, columns, top);
+            top = AddProblem(problem, top);
         }
         contentSize = new Size(2 * Px(EdgeSpace) + columns * Px(TileSize), top + Px(EdgeSpace));
     }
 
     // A section: its title, then its icons in rows. Returns where the next part starts.
     // An empty section is left out.
-    private int AddSection(string title, List<TrayItem> items, int columns, int top)
+    private int AddSection(string title, TrayItemKind kind, List<TrayItem> items, int top)
     {
         if (items.Count == 0)
         {
             return top;
         }
-        var left = Px(EdgeSpace);
-        var tileSize = Px(TileSize);
-        var bounds = new Rectangle(left, top, columns * tileSize, Px(TitleHeight));
+        var bounds = new Rectangle(Px(EdgeSpace), top, columns * Px(TileSize), Px(TitleHeight));
         captions.Add(new Caption(title, titleFont, TitleColor, bounds, TextFormatFlags.VerticalCenter));
-        top += Px(TitleHeight);
+        var section = new Section(kind, top + Px(TitleHeight), []);
+        sections.Add(section);
 
-        for (var i = 0; i < items.Count; i++)
+        foreach (var item in items)
         {
-            var item = items[i];
             var tile = new IconTile(item, Picture(item, Px(IconSize)), Background, HoverBorder, Math.Max(1, Px(1)))
             {
-                Bounds = new Rectangle(left + i % columns * tileSize, top + i / columns * tileSize, tileSize, tileSize),
+                Bounds = Slot(section, section.Tiles.Count),
                 // The section ("Pinned" or "Overflow") as the tile's AutomationId in UI
                 // Automation, for the GUI test.
                 Name = title,
@@ -353,15 +366,89 @@ internal sealed class GridForm : Form
             // tile.Item, not item: the tile gets the newest item at each refresh.
             tile.Click += (_, _) => IconClicked?.Invoke(tile.Item, MouseButtons.Left, MenuPoint(tile));
             tile.RightClick += () => IconClicked?.Invoke(tile.Item, MouseButtons.Right, MenuPoint(tile));
-            tiles.Add(tile);
+            tile.DragMoved += () => MoveDragged(section, tile);
+            tile.Dropped += () => Drop(section, tile);
+            section.Tiles.Add(tile);
             Controls.Add(tile);
         }
-        var rows = (items.Count + columns - 1) / columns;
-        return top + rows * tileSize;
+        return section.Top + Rows(section) * Px(TileSize);
+    }
+
+    // The tiles of both sections, in the order they show.
+    private List<IconTile> AllTiles() => sections.SelectMany(section => section.Tiles).ToList();
+
+    private int Rows(Section section) => (section.Tiles.Count + columns - 1) / columns;
+
+    // Where the tile at this place in a section goes: in rows, left to right.
+    private Rectangle Slot(Section section, int place)
+    {
+        var tileSize = Px(TileSize);
+        return new Rectangle(Px(EdgeSpace) + place % columns * tileSize, section.Top + place / columns * tileSize, tileSize, tileSize);
+    }
+
+    // The place in a section under a point, or the nearest one: a tile dropped outside its
+    // section stays in it, as Windows decides what is Pinned and what is Overflow.
+    private int NearestPlace(Section section, Point point)
+    {
+        var tileSize = Px(TileSize);
+        var column = Math.Clamp((point.X - Px(EdgeSpace)) / tileSize, 0, columns - 1);
+        var row = Math.Clamp((point.Y - section.Top) / tileSize, 0, Rows(section) - 1);
+        return Math.Min(row * columns + column, section.Tiles.Count - 1);
+    }
+
+    // A dragged tile moved with the mouse: it takes the place under its centre, and the
+    // section's other tiles move to make room, as in Windows' overflow flyout.
+    private void MoveDragged(Section section, IconTile tile)
+    {
+        if (dragged == null)
+        {
+            dragged = tile;
+            draggedFrom = section.Tiles.IndexOf(tile);
+            // No tooltip popping up over the tile on the move.
+            toolTip.Active = false;
+        }
+        var b = tile.Bounds;
+        var place = NearestPlace(section, new Point(b.X + b.Width / 2, b.Y + b.Height / 2));
+        section.Tiles.Remove(tile);
+        section.Tiles.Insert(place, tile);
+        for (var i = 0; i < section.Tiles.Count; i++)
+        {
+            if (section.Tiles[i] != tile)
+            {
+                section.Tiles[i].Bounds = Slot(section, i);
+            }
+        }
+    }
+
+    // The user let go of a dragged tile: it goes into its place, and a new order goes out
+    // to be saved. Also called when the grid closes during a drag (Escape): then nothing
+    // more happens.
+    private void Drop(Section section, IconTile tile)
+    {
+        dragged = null;
+        if (Disposing || IsDisposed)
+        {
+            return;
+        }
+        toolTip.Active = true;
+        var place = section.Tiles.IndexOf(tile);
+        tile.Bounds = Slot(section, place);
+        // Tab, the arrow keys and UI Automation (screen readers, the GUI test) go through
+        // the tiles in the order of the grid's controls: make it the order they show in.
+        var tiles = AllTiles();
+        for (var i = 0; i < tiles.Count; i++)
+        {
+            tiles[i].TabIndex = i;
+            Controls.SetChildIndex(tiles[i], i);
+        }
+        if (place != draggedFrom)
+        {
+            Reordered?.Invoke(section.Kind, section.Tiles.Select(t => t.Item).ToList());
+        }
     }
 
     // A grey line under the icons saying what couldn't be read, wrapped to the grid's width.
-    private int AddProblem(string problem, int columns, int top)
+    private int AddProblem(string problem, int top)
     {
         // Wrapped at the grid's width; measured and drawn with the same flags, so the
         // height fits.
@@ -496,4 +583,8 @@ internal sealed class GridForm : Form
 
     // A text the grid draws itself, in this rectangle, with this font and colour.
     private sealed record Caption(string Text, Font Font, Color Color, Rectangle Bounds, TextFormatFlags Flags);
+
+    // Pinned or Overflow: where its first row of tiles starts, and its tiles in the order
+    // they show.
+    private sealed record Section(TrayItemKind Kind, int Top, List<IconTile> Tiles);
 }

@@ -11,8 +11,9 @@ namespace TrayAnywhere;
 // The running app. It has no main window: it shows a floating button on each secondary
 // monitor, opens or closes the grid when the hotkey is pressed or a button is clicked,
 // reads the tray again while the grid is open (every 2 s while it is used, every 10 s
-// while not), and passes clicks on the grid to the real tray icons. The app ends with
-// Exit in the right-click menu of a button or of the grid.
+// while not), and passes clicks on the grid to the real tray icons. Each read shows in the
+// order the user dragged the icons into (IconOrder). The app ends with Exit in the
+// right-click menu of a button or of the grid.
 internal sealed class App : ApplicationContext
 {
     // Alt and the key left of 1: one hand, two neighbouring keys (owner's choice).
@@ -30,7 +31,7 @@ internal sealed class App : ApplicationContext
     private readonly Timer refreshTimer = new() { Interval = 500 };
     // When the read the grid shows started, in ms (Environment.TickCount64).
     private long lastRead;
-    // Where the user dragged the buttons and the grid; saved at each drag.
+    // Where the user dragged the buttons, the grid and its icons; saved at each drag.
     private readonly Settings settings;
     // "Start with Windows" in every window's right-click menu.
     private readonly Autostart autostart;
@@ -104,9 +105,11 @@ internal sealed class App : ApplicationContext
             // on a monitor without a button (the main one) does the grid keep a place of its
             // own, where it was last dragged.
             var button = buttons.Find(b => b.Monitor.DeviceName == monitor.DeviceName);
-            grid = new GridForm(state, monitor, button == null ? settings.GridPlace(monitor) : null, button, AppMenu.Create(autostart));
+            grid = new GridForm(Sorted(state), monitor, button == null ? settings.GridPlace(monitor) : null, button, NewMenu());
             grid.FormClosed += (_, _) => ForgetGrid();
             grid.IconClicked += ClickIcon;
+            // Saved with the keys of icons that aren't there now, at their places.
+            grid.Reordered += (section, items) => settings.SetOrder(section, IconOrder.Merge(items, settings.OrderOf(section)));
             grid.Dragged += place =>
             {
                 if (button == null)
@@ -145,7 +148,7 @@ internal sealed class App : ApplicationContext
             {
                 continue;
             }
-            var button = new FloatingButton(monitor, settings.ButtonPlace(monitor), AppMenu.Create(autostart));
+            var button = new FloatingButton(monitor, settings.ButtonPlace(monitor), NewMenu());
             button.Clicked += () => OpenOrCloseGrid(monitor);
             button.Dragged += place => settings.SetButtonPlace(monitor, place);
             // An open grid on this monitor goes along with the button while it is dragged.
@@ -198,8 +201,29 @@ internal sealed class App : ApplicationContext
     {
         lastRead = Environment.TickCount64;
         var state = await reader.ReadAsync(openIfMissing: false);
-        // The grid may have closed during the read.
-        grid?.ShowState(state);
+        // The grid may have closed during the read. Sorted now, not before the read: the
+        // user may have dragged an icon meanwhile.
+        grid?.ShowState(Sorted(state));
+    }
+
+    // A read in the order the user dragged the icons into, in each section.
+    private TrayState Sorted(TrayState state) => state with
+    {
+        Pinned = IconOrder.Sort(state.Pinned, settings.PinnedOrder),
+        Overflow = IconOrder.Sort(state.Overflow, settings.OverflowOrder),
+    };
+
+    // The right-click menu of a button or of the grid.
+    private ContextMenuStrip NewMenu() => AppMenu.Create(autostart, ResetIconOrder);
+
+    // "Reset icon order": the tray's own order again, in an open grid too.
+    private void ResetIconOrder()
+    {
+        settings.ResetOrder();
+        if (grid != null)
+        {
+            RefreshGrid();
+        }
     }
 
     // A click on a tile goes to its real tray icon, on a background thread: the click

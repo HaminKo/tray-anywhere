@@ -2,6 +2,18 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-19: Drag to reorder: the grid's own order per section, kept by the program's file name
+- What: a tile dragged in the grid takes the place under its centre; the other tiles of its section make room as it passes, and the release doesn't click the icon. Only within its section: a tile dropped over the other section goes to the nearest place in its own. The order is saved in settings.json as a list of keys per section (`PinnedOrder`, `OverflowOrder`), and each read is sorted by it: known icons in the saved order, new ones after them in tray order. Saved keys of icons not there during a drag keep their old places in the list, so a closed program gets its place back. "Reset icon order" in the right-click menu (buttons and grid) empties both lists.
+- Key: the program's file name (`steam.exe`), else the icon's name. Measured on the owner's tray: 15 of 16 app icons have a program; 3 have no name, so a name alone can't be the key. The one without a program ("Session Inbox") changes its tooltip, so it counts as new (end of its section) after a change until dragged again: accepted. One program's two icons share a key and keep Windows' order between them: accepted (none today).
+- Reason: the owner wants the order they choose in the grid, across refreshes and restarts.
+- Decided by: the owner (Claude's suggestions), To do 14.
+- Rejected:
+  - Changing Windows' own order (`UIOrderList` in the registry): undocumented, and it would change the owner's taskbar.
+  - Moving an icon between Pinned and Overflow by dragging: that writes Windows' settings, and Windows' taskbar settings page does it already.
+  - The full program path as key: apps that update themselves into a new folder (Discord's `app-1.0.x`) would lose their place at each update.
+  - WinForms' DoDragDrop (OLE drag and drop): it runs its own loop on the real mouse, so the GUI test couldn't drive it with messages; a drag within one window needs none of it.
+  - No movement until the drop: cheaper by about 15 lines, but the user can't see where the tile will land.
+
 ## 2026-11-18: Windows' notification popups move to the mouse's secondary monitor: a mover only for the shell's toast window
 - What: the app finds the shell's one toast window (class `Windows.UI.Core.CoreWindow`, title "New notification", process ShellExperienceHost) and hooks that process's "moved" events (out of context, as SteamMenu). While it shows a toast, the app keeps it (moves, no resize) at the bottom right of the free area of the mouse's monitor, further left by the scales' ratio, and corrects every later move; on the main monitor that is the shell's own place. First it moved the window only off the main monitor and then left it alone, but the shell sometimes moved it again, below the screen (owner's test). Every app's toasts and tray balloons: one window shows them all. Always on, no setting. This widens the 2026-11-16 Steam-only mover: a second mover, for this one window only.
 - Reason: Windows shows toasts on the main monitor only. Measured (docs/research/notifications.md): the window can be moved from another process, stays and draws at the new monitor's scale; the shell moves it back for each new toast, and the hook reports each move. The filter is exact (class, title, process), unlike "any program's menu", rejected on 2026-11-16 for want of one.

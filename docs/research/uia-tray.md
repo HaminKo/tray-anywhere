@@ -353,6 +353,9 @@ Method: throwaway probes (a .NET 10 console program in a temp folder, not in the
 - In 1 of 3 open-and-close runs (invoke the arrow, wait, invoke again), the second invoke didn't close the flyout. It stayed open for about 30 s until a probe invoked the arrow again. That run came 15 s after the off-screen probe; the next run closed normally. The app's `OpenAndCloseOverflow` does the same two invokes once per Explorer start; no case seen there.
 - Invoke now opens the flyout before it returns: the window was visible at the first check (0 ms; 61 to 124 ms in "Spike step B").
 
+## 2026-11-19: To do 14: where a new icon goes (build 26300)
+- A new program's icon (the GUI test's) showed first in the overflow's UI Automation order, before the owner's 13 icons, in 4 GUI test runs (measured). The grid keeps a dragged order and puts icons it doesn't know at the end of their section instead (docs/decisions.md, 2026-11-19).
+
 ## Open questions for the spike (To do 2)
 - Overflow, step B: answered in "Spike step B". The hidden list is live; it doesn't exist after an Explorer start until the flyout opens once; its order matched the open flyout (owner, 2026-11-14).
 - Right click: does `IUIAutomationElement3::ShowContextMenu` (COM UI Automation; not in the .NET System.Windows.Automation wrapper) open the app's menu? Otherwise a simulated right-click on the real icon. Step D: yes, also for overflow icons while the flyout is closed (Discord's menu, measured); no simulated click needed. Details in "Spike step D".
