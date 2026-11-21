@@ -305,7 +305,8 @@ internal sealed class App : ApplicationContext
         }
         if (settingsWindow == null)
         {
-            settingsWindow = new SettingsForm(monitor, autostart, settings.ButtonOn, SetButtonOn, settings.LookOf, SetLook, hotkey, SetHotkey);
+            settingsWindow = new SettingsForm(monitor, autostart, settings.ButtonOn, SetButtonOn, settings.LookOf, SetLook, hotkey, SetHotkey,
+                settings.HasOrder, ResetIconOrder);
             settingsWindow.FormClosed += (_, _) => settingsWindow = null;
             settingsWindow.Show();
         }
@@ -316,10 +317,13 @@ internal sealed class App : ApplicationContext
         settingsWindow.Activate();
     }
 
-    // "Reset icon order": the tray's own order again, in an open grid too.
+    // "Reset icon order": the tray's own order again, in an open grid too. From the menu
+    // too, an open settings window greys its button at once: the menu doesn't take the
+    // front from it, so it isn't activated again.
     private void ResetIconOrder()
     {
         settings.ResetOrder();
+        settingsWindow?.ShowSettings();
         if (grid != null)
         {
             RefreshGrid();

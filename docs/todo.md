@@ -1,5 +1,5 @@
 ## Where we are
-- Now: To do 22 ("Reset icon order" in the settings window too)
+- Now: Before a public release (no to-dos open)
 - Next: none
 - Updated: 2026-11-21
 
@@ -7,7 +7,6 @@
 Next number: 23. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
-- To do 22: "Reset icon order" in the settings window too (small; user 2026-11-21): docs/todo/22-reset-order-in-settings.md
 
 ### Bugs me
 

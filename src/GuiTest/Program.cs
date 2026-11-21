@@ -126,6 +126,7 @@ internal static class Program
                 ButtonsInSettings(settingsPath, monitors);
                 ButtonLookInSettings(settingsPath, monitors);
                 HotkeyInSettings(settingsPath, monitors);
+                ResetOrderInSettings(settingsPath, monitors);
                 if (userCopy)
                 {
                     Check(TestedApp.IsRunning(TestedApp.UserLockName), "the user's tray-anywhere still runs", "it has stopped");
@@ -490,15 +491,19 @@ internal static class Program
 
     // The hotkey in the settings window, in two copies of the app. The test's copy never
     // takes the keys (TestedApp), so the window and settings.json are checked here, and the
-    // real keys are the owner's to test. Copy 1: the box shows Alt+`, Default greyed; a
-    // click on the box waits for keys; A alone isn't allowed; Escape keeps Alt+`; F9 alone
-    // becomes the hotkey, and settings.json keeps it. Copy 2, after the test wrote
+    // real keys are the owner's to test. Copy 1, with no icon order saved: the box shows
+    // Alt+`, Default and Reset icon order greyed; a click on the box waits for keys; A
+    // alone isn't allowed; Escape keeps Alt+`; F9 alone becomes the hotkey, and
+    // settings.json keeps it. Copy 2, after the test wrote
     // Ctrl+Alt+Space into settings.json (keys with Ctrl or Alt can't be sent, see
     // AppWindow.PressKey): the box shows them; Default brings back Alt+`, greyed, and
     // settings.json holds no hotkey. Both ended by the test.
     private static void HotkeyInSettings(string settingsPath, List<Screen> monitors)
     {
         var monitor = MouseMonitor(monitors);
+        // No icon order saved, for the check that Reset icon order is greyed.
+        WriteSetting(settingsPath, "PinnedOrder", new JsonArray());
+        WriteSetting(settingsPath, "OverflowOrder", new JsonArray());
         using (var app = new TestedApp(settingsPath))
         {
             var window = OpenSettingsWindow(app, monitor);
@@ -507,6 +512,7 @@ internal static class Program
             Check(box.Current.Name == "Alt+`" && !defaultButton.Current.IsEnabled && NoteOf(window) == IdleNote,
                 "the hotkey box shows Alt+`, Default is greyed, and the note says how the box works",
                 $"it shows {box.Current.Name}, Default {(defaultButton.Current.IsEnabled ? "not greyed" : "greyed")}, the note says \"{NoteOf(window)}\"");
+            Check(!ControlNamed(window, "Reset icon order").Current.IsEnabled, "with no icon order saved, Reset icon order is greyed", "it isn't");
             AppWindow.Invoke(box);
             WaitForNote(window, "Press the new keys, or Escape to keep these.", "a click on it waits for new keys");
             window.PressKey(Win32.VkA);
@@ -537,6 +543,22 @@ internal static class Program
                 found: () => $"the box shows {box.Current.Name}");
             WaitUntil("settings.json holds no hotkey", () => SavedHotkey(settingsPath) == null, found: () => SavedHotkey(settingsPath) ?? "");
         }
+    }
+
+    // "Reset icon order" in the settings window, in a copy of the app started with an icon
+    // order the test wrote into settings.json (a drag in the grid needs the real mouse):
+    // the button isn't greyed; a click empties the saved order and greys it. Greyed with
+    // no order saved: HotkeyInSettings checks that. Ended by the test.
+    private static void ResetOrderInSettings(string settingsPath, List<Screen> monitors)
+    {
+        WriteSetting(settingsPath, "PinnedOrder", new JsonArray("tray-anywhere-gui-test.exe"));
+        using var app = new TestedApp(settingsPath);
+        var window = OpenSettingsWindow(app, MouseMonitor(monitors));
+        var reset = ControlNamed(window, "Reset icon order");
+        Check(reset.Current.IsEnabled, "with an icon order in settings.json, Reset icon order isn't greyed", "it is");
+        AppWindow.Invoke(reset);
+        WaitUntil("a click on it empties the saved icon order and greys it", () => SavedOrderLength(settingsPath) == 0 && !reset.Current.IsEnabled,
+            found: () => $"{SavedOrderLength(settingsPath)} keys saved, {(reset.Current.IsEnabled ? "not greyed" : "greyed")}");
     }
 
     // The line under the hotkey box while it doesn't wait for keys.
@@ -1101,12 +1123,15 @@ internal static class Program
             : null;
     }
 
-    // Writes these keys into settings.json as the hotkey, by name as the app writes them,
-    // and keeps the rest of the file.
-    private static void WriteHotkey(string path, string modifiers, string key)
+    // Writes these keys into settings.json as the hotkey, by name as the app writes them.
+    private static void WriteHotkey(string path, string modifiers, string key) =>
+        WriteSetting(path, "Hotkey", new JsonObject { ["Modifiers"] = modifiers, ["Key"] = key });
+
+    // Writes one setting into settings.json and keeps the rest of the file.
+    private static void WriteSetting(string path, string name, JsonNode value)
     {
         var file = JsonNode.Parse(File.ReadAllText(path)) ?? throw new CheckFailed("settings.json holds null");
-        file["Hotkey"] = new JsonObject { ["Modifiers"] = modifiers, ["Key"] = key };
+        file[name] = value;
         File.WriteAllText(path, file.ToJsonString());
     }
 

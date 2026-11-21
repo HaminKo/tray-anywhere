@@ -145,6 +145,10 @@ internal sealed class Settings
         Save();
     }
 
+    // True if icons were dragged into an order of their own in either section. A method,
+    // not a property: a public property would be written into the file.
+    public bool HasOrder() => PinnedOrder.Count > 0 || OverflowOrder.Count > 0;
+
     // Back to the tray's order in both sections.
     public void ResetOrder()
     {

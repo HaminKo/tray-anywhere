@@ -107,6 +107,11 @@ internal sealed class SettingsForm : Form
     private readonly Button hotkeyBox = new() { Name = "Hotkey", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
     private readonly Button defaultHotkey = new() { Text = "Default", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
     private readonly Label hotkeyNote = new() { Name = "HotkeyNote", Text = IdleNote };
+    // Whether icons were dragged into an order of their own, and what resets it (App: the
+    // tray's order again, in an open grid too), as "Reset icon order" in the menu does.
+    private readonly Func<bool> hasOrder;
+    private readonly Action resetOrder;
+    private readonly Button resetOrderButton = new() { Text = "Reset icon order", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
     // The colors' names, on the squares.
     private readonly ToolTip toolTip = new();
     // The monitor picked in the outline: the settings below it are for its button.
@@ -120,7 +125,8 @@ internal sealed class SettingsForm : Form
 
     // monitor: the one the window opens on; the outline starts with it picked.
     public SettingsForm(Screen monitor, Autostart autostart, Func<Screen, bool> buttonOn, Action<Screen, bool> setButtonOn,
-        Func<Screen, ButtonLook> lookOf, Action<Screen, ButtonLook> setLook, Hotkey hotkey, Func<HotkeyKeys, bool> setHotkey)
+        Func<Screen, ButtonLook> lookOf, Action<Screen, ButtonLook> setLook, Hotkey hotkey, Func<HotkeyKeys, bool> setHotkey,
+        Func<bool> hasOrder, Action resetOrder)
     {
         Monitor = monitor;
         this.autostart = autostart;
@@ -130,6 +136,8 @@ internal sealed class SettingsForm : Form
         this.setLook = setLook;
         this.hotkey = hotkey;
         this.setHotkey = setHotkey;
+        this.hasOrder = hasOrder;
+        this.resetOrder = resetOrder;
         area = monitor.WorkingArea;
         picked = monitor;
 
@@ -236,7 +244,11 @@ internal sealed class SettingsForm : Form
                 StartWaiting();
             }
         };
-        defaultHotkey.Click += (_, _) => EndWaiting(setHotkey(HotkeyKeys.Default) ? IdleNote : RefusedNote);
+        defaultHotkey.Click += (_, _) =>
+        {
+            ClearFocus();
+            EndWaiting(setHotkey(HotkeyKeys.Default) ? IdleNote : RefusedNote);
+        };
         // The keys now, so ScaleTo makes room for them.
         hotkeyBox.Text = hotkey.Current.Name();
         MakeFlat(hotkeyBox, picked: false);
@@ -247,6 +259,15 @@ internal sealed class SettingsForm : Form
         AddRow(startWithWindows);
         AddRow(hotkeyName, hotkeyRow);
         AddRow(hotkeyNote);
+        // ShowSettings greys it again.
+        resetOrderButton.Click += (_, _) =>
+        {
+            ClearFocus();
+            resetOrder();
+            ShowSettings();
+        };
+        MakeFlat(resetOrderButton, picked: false);
+        AddRow(resetOrderButton);
         Controls.Add(layout);
 
         // Made in the middle of its monitor; OnLoad places it there with its real size.
@@ -292,6 +313,8 @@ internal sealed class SettingsForm : Form
         {
             hotkeyNote.Text = TakenNote;
         }
+        // Greyed while the grid shows the tray's own order: nothing to reset.
+        resetOrderButton.Enabled = hasOrder();
         showing = false;
     }
 
@@ -339,6 +362,11 @@ internal sealed class SettingsForm : Form
         hotkeyNote.Text = note;
         ShowSettings();
     }
+
+    // Before a click greys its own button: a button greyed while it has the keyboard focus
+    // hands it to the next control (Default to Reset icon order, which Enter would then
+    // click), so the window itself takes the focus first.
+    private void ClearFocus() => ActiveControl = null;
 
     // A control in a row of its own, across both columns.
     private void AddRow(Control control)
@@ -410,9 +438,11 @@ internal sealed class SettingsForm : Form
         old?.Dispose();
         var space = (int)Math.Round(EdgeSpace * dpi / 96f);
         layout.Location = new Point(space, space);
-        // A gap above Start with Windows, apart from the button's settings. The other
-        // controls keep WinForms' 3 px around them.
+        // A gap above Start with Windows, apart from the button's settings, and above Reset
+        // icon order, apart from the hotkey. The other controls keep WinForms' 3 px around
+        // them.
         startWithWindows.Margin = new Padding(3, space, 3, 3);
+        resetOrderButton.Margin = new Padding(3, space, 3, 3);
         int Px(int size) => (int)Math.Round(size * dpi / 96f);
         foreach (var (square, _) in squares)
         {
@@ -424,8 +454,8 @@ internal sealed class SettingsForm : Form
         {
             choice.Margin = new Padding(0, 0, Px(ChoiceGap), 0);
         }
-        // Room around the text of the hotkey's flat buttons, which have no frame.
-        hotkeyBox.Padding = defaultHotkey.Padding = new Padding(Px(ButtonPadding), 0, Px(ButtonPadding), 0);
+        // Room around the text of the flat buttons, which have no frame.
+        hotkeyBox.Padding = defaultHotkey.Padding = resetOrderButton.Padding = new Padding(Px(ButtonPadding), 0, Px(ButtonPadding), 0);
         hotkeyBox.Margin = new Padding(0, 0, Px(ChoiceGap), 0);
         defaultHotkey.Margin = Padding.Empty;
         PlaceBoxes(dpi);
