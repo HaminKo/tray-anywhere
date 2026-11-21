@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Windows.Automation;
 using System.Windows.Forms;
 using Microsoft.Win32;
@@ -124,6 +125,7 @@ internal static class Program
                 SettingsWindow(settingsPath, monitors);
                 ButtonsInSettings(settingsPath, monitors);
                 ButtonLookInSettings(settingsPath, monitors);
+                HotkeyInSettings(settingsPath, monitors);
                 if (userCopy)
                 {
                     Check(TestedApp.IsRunning(TestedApp.UserLockName), "the user's tray-anywhere still runs", "it has stopped");
@@ -485,6 +487,66 @@ internal static class Program
             CheckSavedLook(settingsPath, monitor, new Look("Dark", "Small", true));
         }
     }
+
+    // The hotkey in the settings window, in two copies of the app. The test's copy never
+    // takes the keys (TestedApp), so the window and settings.json are checked here, and the
+    // real keys are the owner's to test. Copy 1: the box shows Alt+`, Default greyed; a
+    // click on the box waits for keys; A alone isn't allowed; Escape keeps Alt+`; F9 alone
+    // becomes the hotkey, and settings.json keeps it. Copy 2, after the test wrote
+    // Ctrl+Alt+Space into settings.json (keys with Ctrl or Alt can't be sent, see
+    // AppWindow.PressKey): the box shows them; Default brings back Alt+`, greyed, and
+    // settings.json holds no hotkey. Both ended by the test.
+    private static void HotkeyInSettings(string settingsPath, List<Screen> monitors)
+    {
+        var monitor = MouseMonitor(monitors);
+        using (var app = new TestedApp(settingsPath))
+        {
+            var window = OpenSettingsWindow(app, monitor);
+            var box = window.ControlWithId("Hotkey") ?? throw new CheckFailed("the settings window has no hotkey box");
+            var defaultButton = ControlNamed(window, "Default");
+            Check(box.Current.Name == "Alt+`" && !defaultButton.Current.IsEnabled && NoteOf(window) == IdleNote,
+                "the hotkey box shows Alt+`, Default is greyed, and the note says how the box works",
+                $"it shows {box.Current.Name}, Default {(defaultButton.Current.IsEnabled ? "not greyed" : "greyed")}, the note says \"{NoteOf(window)}\"");
+            AppWindow.Invoke(box);
+            WaitForNote(window, "Press the new keys, or Escape to keep these.", "a click on it waits for new keys");
+            window.PressKey(Win32.VkA);
+            WaitForNote(window, "Use Ctrl, Alt or Win with that key.", "A alone isn't allowed");
+            window.PressEscape();
+            WaitForNote(window, IdleNote, "Escape ends the wait");
+            Check(app.SettingsWindow() != null && box.Current.Name == "Alt+`", "the window stays open, with Alt+`",
+                $"open: {app.SettingsWindow() != null}, the box shows {box.Current.Name}");
+            Check(SavedHotkey(settingsPath) == null, "settings.json holds no hotkey", $"it holds {SavedHotkey(settingsPath)}");
+
+            AppWindow.Invoke(box);
+            WaitForNote(window, "Press the new keys, or Escape to keep these.", "a second click waits again");
+            window.PressKey(Win32.VkF9);
+            WaitUntil("F9 alone becomes the hotkey", () => box.Current.Name == "F9" && NoteOf(window) == IdleNote,
+                found: () => $"the box shows {box.Current.Name}, the note says \"{NoteOf(window)}\"");
+            Check(defaultButton.Current.IsEnabled, "Default isn't greyed now", "it is");
+            WaitUntil("settings.json keeps F9", () => SavedHotkey(settingsPath) == "None F9", found: () => SavedHotkey(settingsPath) ?? "no hotkey");
+        }
+        WriteHotkey(settingsPath, "Alt, Ctrl", "Space");
+        using (var app = new TestedApp(settingsPath))
+        {
+            var window = OpenSettingsWindow(app, monitor);
+            var box = window.ControlWithId("Hotkey") ?? throw new CheckFailed("the settings window has no hotkey box");
+            var defaultButton = ControlNamed(window, "Default");
+            Check(box.Current.Name == "Ctrl+Alt+Space", "started with Ctrl+Alt+Space in settings.json, the box shows them", $"it shows {box.Current.Name}");
+            AppWindow.Invoke(defaultButton);
+            WaitUntil("Default brings back Alt+`, and is greyed", () => box.Current.Name == "Alt+`" && !defaultButton.Current.IsEnabled,
+                found: () => $"the box shows {box.Current.Name}");
+            WaitUntil("settings.json holds no hotkey", () => SavedHotkey(settingsPath) == null, found: () => SavedHotkey(settingsPath) ?? "");
+        }
+    }
+
+    // The line under the hotkey box while it doesn't wait for keys.
+    private const string IdleNote = "Click the keys to change them.";
+
+    // The line under the hotkey box, or null if the window has none.
+    private static string? NoteOf(AppWindow window) => window.ControlWithId("HotkeyNote")?.Current.Name;
+
+    private static void WaitForNote(AppWindow window, string note, string what) =>
+        WaitUntil(what, () => NoteOf(window) == note, found: () => $"the note says \"{NoteOf(window)}\"");
 
     // The settings window shows this color, size and always on top for the picked monitor.
     private static void CheckLookShown(AppWindow window, string color, string size, bool onTop, string what)
@@ -1027,6 +1089,25 @@ internal static class Program
     {
         using var file = JsonDocument.Parse(File.ReadAllText(path));
         return file.RootElement.TryGetProperty("MainButtonOn", out var on) && on.GetBoolean();
+    }
+
+    // The hotkey settings.json keeps, as "modifiers key" ("Alt, Ctrl Space"), or null when
+    // it has none (or null): the default.
+    private static string? SavedHotkey(string path)
+    {
+        using var file = JsonDocument.Parse(File.ReadAllText(path));
+        return file.RootElement.TryGetProperty("Hotkey", out var keys) && keys.ValueKind != JsonValueKind.Null
+            ? $"{keys.GetProperty("Modifiers").GetString()} {keys.GetProperty("Key").GetString()}"
+            : null;
+    }
+
+    // Writes these keys into settings.json as the hotkey, by name as the app writes them,
+    // and keeps the rest of the file.
+    private static void WriteHotkey(string path, string modifiers, string key)
+    {
+        var file = JsonNode.Parse(File.ReadAllText(path)) ?? throw new CheckFailed("settings.json holds null");
+        file["Hotkey"] = new JsonObject { ["Modifiers"] = modifiers, ["Key"] = key };
+        File.WriteAllText(path, file.ToJsonString());
     }
 
     // The number of keys in the icon order settings.json keeps for both sections. A list

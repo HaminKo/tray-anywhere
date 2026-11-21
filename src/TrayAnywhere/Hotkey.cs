@@ -8,10 +8,6 @@ namespace TrayAnywhere;
 // pressed, whichever program has the focus.
 internal sealed class Hotkey : NativeWindow, IDisposable
 {
-    // Modifier keys for Register, combined with |.
-    public const uint Alt = 0x1;
-    public const uint Control = 0x2;
-
     // Holding the keys down sends one press, not a stream of them.
     private const uint NoRepeat = 0x4000;
     private const int WmHotkey = 0x0312;
@@ -20,19 +16,65 @@ internal sealed class Hotkey : NativeWindow, IDisposable
     // A message-only window: never shown, only receives messages.
     private static readonly IntPtr MessageOnlyParent = new(-3);
 
+    // False for the GUI test's copy, which leaves the keys to the user's copy: it keeps
+    // and shows them, but never takes them.
+    private readonly bool use;
     private bool registered;
 
     // The window's title: never shown, but the GUI test finds the window by it and sends
-    // it WM_HOTKEY in place of the real keys.
-    public Hotkey() => CreateHandle(new CreateParams { Parent = MessageOnlyParent, Caption = "tray-anywhere hotkey" });
+    // it WM_HOTKEY in place of the real keys. keys: the keys to take, as set.
+    public Hotkey(HotkeyKeys keys, bool use)
+    {
+        Current = keys;
+        this.use = use;
+        CreateHandle(new CreateParams { Parent = MessageOnlyParent, Caption = "tray-anywhere hotkey" });
+        Resume();
+    }
 
     public event Action? Pressed;
 
-    // Returns false if another program already uses these keys.
-    public bool Register(uint modifiers, Keys key)
+    // The keys as set, taken or not.
+    public HotkeyKeys Current { get; private set; }
+
+    // True when the app wants the keys and another program already has them.
+    public bool Taken => use && !registered;
+
+    // Lets go of the keys, so that while the settings window waits for new keys, pressing
+    // these reaches it too.
+    public void Pause()
     {
-        registered = RegisterHotKey(Handle, HotkeyId, modifiers | NoRepeat, (uint)key);
-        return registered;
+        if (registered)
+        {
+            UnregisterHotKey(Handle, HotkeyId);
+            registered = false;
+        }
+    }
+
+    // Takes the keys again after Pause; if they were taken, tries once more.
+    public void Resume()
+    {
+        if (use && !registered)
+        {
+            registered = RegisterHotKey(Handle, HotkeyId, (uint)Current.Modifiers | NoRepeat, (uint)Current.Key);
+        }
+    }
+
+    // Changes to these keys if no other program has them. Else the old keys stay, and it
+    // returns false. One id at a time: Windows would keep the old keys along with new ones
+    // registered with the same id.
+    public bool TryChange(HotkeyKeys keys)
+    {
+        var old = Current;
+        Pause();
+        Current = keys;
+        Resume();
+        if (Taken)
+        {
+            Current = old;
+            Resume();
+            return false;
+        }
+        return true;
     }
 
     protected override void WndProc(ref Message m)
@@ -46,11 +88,7 @@ internal sealed class Hotkey : NativeWindow, IDisposable
 
     public void Dispose()
     {
-        if (registered)
-        {
-            UnregisterHotKey(Handle, HotkeyId);
-            registered = false;
-        }
+        Pause();
         DestroyHandle();
     }
 

@@ -1,13 +1,13 @@
 ## Where we are
-- Now: To do 21 (Change the hotkey in the settings window)
+- Now: To do 22 ("Reset icon order" in the settings window too)
 - Next: none
 - Updated: 2026-11-21
 
 ## To do
-Next number: 22. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
+Next number: 23. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
-- To do 21: Change the hotkey in the settings window, with a way back to the default (medium; user 2026-11-21): docs/todo/21-hotkey-setting.md
+- To do 22: "Reset icon order" in the settings window too (small; user 2026-11-21): docs/todo/22-reset-order-in-settings.md
 
 ### Bugs me
 

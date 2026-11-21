@@ -17,10 +17,8 @@ namespace TrayAnywhere;
 // right-click menu of a button or of the grid.
 internal sealed class App : ApplicationContext
 {
-    // Alt and the key left of 1: one hand, two neighbouring keys (owner's choice).
-    public const string HotkeyName = "Alt+`";
-
-    private readonly Hotkey hotkey = new();
+    // The keys set in the settings window (Alt+` by default).
+    private readonly Hotkey hotkey;
     private readonly TrayReader reader = new();
     // How old the grid's icons may get before the tray is read again, in ms: while the
     // grid is used (GridForm.InUse), and while it isn't (owner's choice, To do 8: an open
@@ -49,34 +47,28 @@ internal sealed class App : ApplicationContext
     // Moves Windows' notification popups to the monitor the mouse is on.
     private readonly ToastMover toastMover = new();
 
-    // useHotkey: false for the GUI test's copy, which leaves the keys to the user's copy;
-    // its hidden hotkey window is still made, and the test sends it the hotkey's message.
-    // The app disposes steamMenu.
-    public App(Settings settings, Autostart autostart, bool useHotkey, SteamMenu steamMenu)
+    // hotkey: made by Program, which says so first if another program has the keys. The
+    // app disposes hotkey and steamMenu.
+    public App(Settings settings, Autostart autostart, Hotkey hotkey, SteamMenu steamMenu)
     {
         this.settings = settings;
         this.autostart = autostart;
+        this.hotkey = hotkey;
         this.steamMenu = steamMenu;
-        // Oemtilde: the ` and ~ key on a US keyboard.
-        HotkeyTaken = useHotkey && !hotkey.Register(Hotkey.Alt, Keys.Oemtilde);
         // The monitor the mouse is on at the press, not when the read is done.
         hotkey.Pressed += () => OpenOrCloseGrid(Screen.FromPoint(Cursor.Position));
         refreshTimer.Tick += (_, _) => RefreshIfDue();
 
         // A first read at start: it warms up UI Automation (the first read is the
         // slowest), and if Explorer hasn't created the overflow window yet, the one
-        // flash of the flyout happens now instead of when the grid opens. No read and no
-        // buttons when the app is about to quit because the hotkey is taken.
-        if (!HotkeyTaken)
-        {
-            _ = reader.ReadAsync(openIfMissing: true);
-            MakeButtons();
-            SystemEvents.DisplaySettingsChanged += OnMonitorsChanged;
-        }
+        // flash of the flyout happens now instead of when the grid opens.
+        _ = reader.ReadAsync(openIfMissing: true);
+        MakeButtons();
+        SystemEvents.DisplaySettingsChanged += OnMonitorsChanged;
     }
 
-    // True if the app wanted the hotkey and another program already uses it.
-    public bool HotkeyTaken { get; }
+    // The hotkey as set, e.g. "Alt+`", for the buttons' tooltips.
+    private string HotkeyName => hotkey.Current.Name();
 
     // Opens the grid on this monitor, or closes it if it is open there. Open on another
     // monitor, it moves here: closed there, opened here (owner's choice).
@@ -167,7 +159,7 @@ internal sealed class App : ApplicationContext
     // settings give it.
     private void MakeButton(Screen monitor)
     {
-        var button = new FloatingButton(monitor, settings.ButtonPlace(monitor), settings.LookOf(monitor), NewMenu(monitor));
+        var button = new FloatingButton(monitor, settings.ButtonPlace(monitor), settings.LookOf(monitor), HotkeyName, NewMenu(monitor));
         button.Clicked += () => OpenOrCloseGrid(monitor);
         button.Dragged += place => settings.SetButtonPlace(monitor, place);
         // An open grid on this monitor goes along with the button while it is dragged.
@@ -199,6 +191,22 @@ internal sealed class App : ApplicationContext
     {
         settings.SetLook(monitor, look);
         MakeButtonAgain(monitor);
+    }
+
+    // New keys in the settings window: taken if no other program has them (else the old
+    // ones stay, and it returns false), saved, and named in the buttons' tooltips.
+    private bool SetHotkey(HotkeyKeys keys)
+    {
+        if (!hotkey.TryChange(keys))
+        {
+            return false;
+        }
+        settings.SetHotkey(keys);
+        foreach (var button in buttons)
+        {
+            button.ShowHotkey(HotkeyName);
+        }
+        return true;
     }
 
     // After a change to a monitor's button settings: its button closes and, if it is on,
@@ -297,7 +305,7 @@ internal sealed class App : ApplicationContext
         }
         if (settingsWindow == null)
         {
-            settingsWindow = new SettingsForm(monitor, autostart, settings.ButtonOn, SetButtonOn, settings.LookOf, SetLook);
+            settingsWindow = new SettingsForm(monitor, autostart, settings.ButtonOn, SetButtonOn, settings.LookOf, SetLook, hotkey, SetHotkey);
             settingsWindow.FormClosed += (_, _) => settingsWindow = null;
             settingsWindow.Show();
         }

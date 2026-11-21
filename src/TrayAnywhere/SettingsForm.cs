@@ -9,9 +9,9 @@ namespace TrayAnywhere;
 
 // The settings window, opened by "Settings..." in the right-click menu: the monitors drawn
 // as an outline, as in Windows' Settings > System > Display (names: MonitorNames), and
-// the settings of the picked monitor's floating button; then Start with Windows for the
-// whole app. A change applies at once and is saved, so there is no OK or Cancel; its X or
-// Escape closes it. Plain WinForms controls, coloured dark like the grid.
+// the settings of the picked monitor's floating button; then Start with Windows and the
+// hotkey for the whole app. A change applies at once and is saved, so there is no OK or
+// Cancel; its X or Escape closes it. Plain WinForms controls, coloured dark like the grid.
 internal sealed class SettingsForm : Form
 {
     // Sizes at 100 % scaling, in pixels: the text as in the grid, and the space around it.
@@ -32,6 +32,11 @@ internal sealed class SettingsForm : Form
     private const int SquareFrame = 2;
     private const int SquareGap = 6;
     private const int ChoiceGap = 12;
+    // The space left and right of the text in the hotkey's buttons.
+    private const int ButtonPadding = 6;
+    // WM_SYSCOMMAND's "the menu, from the keyboard" (WndProc); its low 4 bits are Windows' own.
+    private const int WmSysCommand = 0x0112;
+    private const int ScKeyMenu = 0xF100;
 
     private static readonly Color Background = Color.FromArgb(32, 32, 32);
     private static readonly Color TextColor = Color.FromArgb(220, 220, 220);
@@ -43,6 +48,16 @@ internal sealed class SettingsForm : Form
     private static readonly Color PickedHover = Color.FromArgb(30, 140, 230);
     // The names of the color and size rows while the button is off.
     private static readonly Color GreyedText = Color.FromArgb(120, 120, 120);
+
+    // The line under the hotkey: how its box works; while it waits for new keys; after a
+    // key that isn't allowed; after new keys another program has; and while the keys as
+    // set are another program's (from the start). Never empty: UI Automation would then
+    // give the line the name of the one before it, "Hotkey:" (measured).
+    private const string IdleNote = "Click the keys to change them.";
+    private const string WaitingNote = "Press the new keys, or Escape to keep these.";
+    private const string NotAllowedNote = "Use Ctrl, Alt or Win with that key.";
+    private const string RefusedNote = "Another program uses those keys; these stay.";
+    private const string TakenNote = "Another program uses these keys: pick others.";
 
     private readonly Autostart autostart;
     // Whether a monitor has a floating button, and what switching it does (App).
@@ -80,6 +95,18 @@ internal sealed class SettingsForm : Form
     private readonly FlowLayoutPanel sizeRow = new() { AutoSize = true, WrapContents = false };
     private readonly List<(RadioButton Choice, ButtonSize Size)> sizes = new();
     private readonly CheckBox onTop = new() { Text = "Always on top", AutoSize = true };
+    // The app's hotkey, and what new keys do (App: true if they are taken, false if another
+    // program has them and the old ones stay).
+    private readonly Hotkey hotkey;
+    private readonly Func<HotkeyKeys, bool> setHotkey;
+    // The hotkey's row: a box with the keys, which a click makes wait for new ones, and
+    // Default; under it a line on how it went. The box's and the line's Names are their
+    // AutomationIds, by which the GUI test finds them.
+    private readonly Label hotkeyName = new() { Text = "Hotkey:", AutoSize = true, Anchor = AnchorStyles.Left };
+    private readonly FlowLayoutPanel hotkeyRow = new() { AutoSize = true, WrapContents = false };
+    private readonly Button hotkeyBox = new() { Name = "Hotkey", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+    private readonly Button defaultHotkey = new() { Text = "Default", AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink };
+    private readonly Label hotkeyNote = new() { Name = "HotkeyNote", Text = IdleNote };
     // The colors' names, on the squares.
     private readonly ToolTip toolTip = new();
     // The monitor picked in the outline: the settings below it are for its button.
@@ -88,10 +115,12 @@ internal sealed class SettingsForm : Form
     private Font? textFont;
     // True while ShowSettings sets the ticks, so that isn't taken for a change by the user.
     private bool showing;
+    // True while the hotkey box waits for new keys: every key press goes to it then.
+    private bool waiting;
 
     // monitor: the one the window opens on; the outline starts with it picked.
     public SettingsForm(Screen monitor, Autostart autostart, Func<Screen, bool> buttonOn, Action<Screen, bool> setButtonOn,
-        Func<Screen, ButtonLook> lookOf, Action<Screen, ButtonLook> setLook)
+        Func<Screen, ButtonLook> lookOf, Action<Screen, ButtonLook> setLook, Hotkey hotkey, Func<HotkeyKeys, bool> setHotkey)
     {
         Monitor = monitor;
         this.autostart = autostart;
@@ -99,6 +128,8 @@ internal sealed class SettingsForm : Form
         this.setButtonOn = setButtonOn;
         this.lookOf = lookOf;
         this.setLook = setLook;
+        this.hotkey = hotkey;
+        this.setHotkey = setHotkey;
         area = monitor.WorkingArea;
         picked = monitor;
 
@@ -197,8 +228,25 @@ internal sealed class SettingsForm : Form
         AddRow(showButton);
         AddRow(colorName, colorRow);
         AddRow(sizeName, sizeRow);
+        // A second click while it waits changes nothing; Escape ends the wait.
+        hotkeyBox.Click += (_, _) =>
+        {
+            if (!waiting)
+            {
+                StartWaiting();
+            }
+        };
+        defaultHotkey.Click += (_, _) => EndWaiting(setHotkey(HotkeyKeys.Default) ? IdleNote : RefusedNote);
+        // The keys now, so ScaleTo makes room for them.
+        hotkeyBox.Text = hotkey.Current.Name();
+        MakeFlat(hotkeyBox, picked: false);
+        MakeFlat(defaultHotkey, picked: false);
+        hotkeyRow.Controls.Add(hotkeyBox);
+        hotkeyRow.Controls.Add(defaultHotkey);
         AddRow(onTop);
         AddRow(startWithWindows);
+        AddRow(hotkeyName, hotkeyRow);
+        AddRow(hotkeyNote);
         Controls.Add(layout);
 
         // Made in the middle of its monitor; OnLoad places it there with its real size.
@@ -231,7 +279,65 @@ internal sealed class SettingsForm : Form
         // stay enabled, in a grey picked for the dark window.
         colorRow.Enabled = sizeRow.Enabled = onTop.Enabled = showButton.Checked;
         colorName.ForeColor = sizeName.ForeColor = showButton.Checked ? TextColor : GreyedText;
+        var keys = hotkey.Current.Name();
+        if (hotkeyBox.Text != keys)
+        {
+            // Longer keys may need a wider window, still on its monitor.
+            hotkeyBox.Text = keys;
+            FitWindow(DeviceDpi);
+            Location = TopWindow.KeepInside(area, Location, Size);
+        }
+        defaultHotkey.Enabled = hotkey.Current != HotkeyKeys.Default;
+        if (hotkey.Taken && !waiting)
+        {
+            hotkeyNote.Text = TakenNote;
+        }
         showing = false;
+    }
+
+    // A click on the hotkey box: from now on each key press goes to it (ProcessCmdKey).
+    private void StartWaiting()
+    {
+        waiting = true;
+        // Let go of the keys, so pressing them reaches this window too.
+        hotkey.Pause();
+        MakeFlat(hotkeyBox, picked: true);
+        hotkeyNote.Text = WaitingNote;
+    }
+
+    // A key pressed while the hotkey box waits. Escape keeps the keys as they were; a
+    // modifier key alone waits for the key that comes with it; a key that isn't allowed
+    // says so and waits on.
+    private void TakeKeys(Keys keyData)
+    {
+        if ((keyData & Keys.KeyCode) == Keys.Escape)
+        {
+            EndWaiting(IdleNote);
+            return;
+        }
+        var keys = HotkeyKeys.FromKeyPress(keyData);
+        if (keys == null)
+        {
+            return;
+        }
+        if (!keys.IsAllowed())
+        {
+            hotkeyNote.Text = NotAllowedNote;
+            return;
+        }
+        EndWaiting(setHotkey(keys) ? IdleNote : RefusedNote);
+    }
+
+    // The end of a wait for new keys, and after Default (which ends a wait too): the keys
+    // are the app's again (new ones setHotkey took, or else the old ones), and the line
+    // under them says how it went.
+    private void EndWaiting(string note)
+    {
+        waiting = false;
+        hotkey.Resume();
+        MakeFlat(hotkeyBox, picked: false);
+        hotkeyNote.Text = note;
+        ShowSettings();
     }
 
     // A control in a row of its own, across both columns.
@@ -269,6 +375,28 @@ internal sealed class SettingsForm : Form
         ShowSettings();
     }
 
+    // Keys pressed in another window don't come here, so a wait for new keys ends when
+    // the window is left, and the old keys are the app's again.
+    protected override void OnDeactivate(EventArgs e)
+    {
+        base.OnDeactivate(e);
+        if (waiting)
+        {
+            EndWaiting(IdleNote);
+        }
+    }
+
+    // Closed while the hotkey box waits (by its X, or by "Settings..." on another monitor):
+    // the old keys are the app's again.
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        if (waiting)
+        {
+            hotkey.Resume();
+        }
+        base.OnFormClosed(e);
+    }
+
     // The text and the space around it at this scaling (96: 100 %). The controls size
     // themselves to their text; the window is set to their size here, not with the form's
     // AutoSize, which changed it only after OnLoad had placed it (9 px off the middle,
@@ -296,8 +424,21 @@ internal sealed class SettingsForm : Form
         {
             choice.Margin = new Padding(0, 0, Px(ChoiceGap), 0);
         }
+        // Room around the text of the hotkey's flat buttons, which have no frame.
+        hotkeyBox.Padding = defaultHotkey.Padding = new Padding(Px(ButtonPadding), 0, Px(ButtonPadding), 0);
+        hotkeyBox.Margin = new Padding(0, 0, Px(ChoiceGap), 0);
+        defaultHotkey.Margin = Padding.Empty;
         PlaceBoxes(dpi);
-        SizePickedName();
+        SizeForLongest(pickedName, boxes.ConvertAll(b => b.Box.AccessibleName ?? ""));
+        SizeForLongest(hotkeyNote, [IdleNote, WaitingNote, NotAllowedNote, RefusedNote, TakenNote]);
+        FitWindow(dpi);
+    }
+
+    // The window as big as its controls, with the space around them, and never narrower
+    // than MinWidth.
+    private void FitWindow(int dpi)
+    {
+        var space = (int)Math.Round(EdgeSpace * dpi / 96f);
         var content = layout.PreferredSize;
         var minWidth = (int)Math.Round(MinWidth * dpi / 96f);
         ClientSize = new Size(Math.Max(content.Width + 2 * space, minWidth), content.Height + 2 * space);
@@ -384,20 +525,33 @@ internal sealed class SettingsForm : Form
         outline.Size = new Size(Scaled(desktop.Width), Scaled(desktop.Height));
     }
 
-    // The name under the outline as wide as the longest name, as the label itself measures
-    // them, so each pick fits without the window changing its size.
-    private void SizePickedName()
+    // A label as big as the longest of the texts it shows (the monitors' names under the
+    // outline, the hotkey's notes), as the label itself measures them, so each fits
+    // without the window changing its size.
+    private static void SizeForLongest(Label label, List<string> texts)
     {
-        var shown = pickedName.Text;
+        var shown = label.Text;
         var size = Size.Empty;
-        foreach (var (box, _) in boxes)
+        foreach (var text in texts)
         {
-            pickedName.Text = box.AccessibleName;
-            var needed = pickedName.PreferredSize;
+            label.Text = text;
+            var needed = label.PreferredSize;
             size = new Size(Math.Max(size.Width, needed.Width), Math.Max(size.Height, needed.Height));
         }
-        pickedName.Text = shown;
-        pickedName.Size = size;
+        label.Text = shown;
+        label.Size = size;
+    }
+
+    // A button flat like the monitors' boxes: grey, or blue while picked (the hotkey box
+    // while it waits), each a little lighter under the mouse.
+    private static void MakeFlat(Button button, bool picked)
+    {
+        button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderSize = 0;
+        button.BackColor = picked ? PickedColor : BoxColor;
+        var hover = picked ? PickedHover : BoxHover;
+        button.FlatAppearance.MouseOverBackColor = hover;
+        button.FlatAppearance.MouseDownBackColor = hover;
     }
 
     // The window's top-left corner when it is in the middle of its monitor's free area.
@@ -422,16 +576,31 @@ internal sealed class SettingsForm : Form
 
     // Kept on its monitor while dragged, like the grid: it is laid out for that monitor's
     // scaling only. "Settings..." on another monitor opens it there.
+    // Also: no menu from the keyboard. Letting go of Alt or F10 alone asks for the window's
+    // menu (SC_KEYMENU with no key), and Windows' menu would then get the next keys, so a
+    // hotkey box waiting for them wouldn't (code review). The window has no menu bar, and
+    // Alt+Space still opens its system menu (it comes with Space as its key).
     protected override void WndProc(ref Message m)
     {
+        if (m.Msg == WmSysCommand && (m.WParam.ToInt64() & 0xFFF0) == ScKeyMenu && m.LParam == IntPtr.Zero)
+        {
+            return;
+        }
         if (!TopWindow.KeepOnMonitor(ref m, area))
         {
             base.WndProc(ref m);
         }
     }
 
+    // Every key press comes here first, before the control with the focus gets it: with
+    // Alt too (Windows' "system keys"), so Alt+` reaches the hotkey box.
     protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
     {
+        if (waiting)
+        {
+            TakeKeys(keyData);
+            return true;
+        }
         if (keyData == Keys.Escape)
         {
             Close();

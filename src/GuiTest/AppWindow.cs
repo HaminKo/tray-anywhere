@@ -68,10 +68,14 @@ internal sealed class AppWindow
     // WinForms opens the window's menu in its middle wherever the mouse is.
     public void RightClick() => PostMessage(Handle, WmContextMenu, Handle, new IntPtr(-1));
 
-    public void PressEscape()
+    public void PressEscape() => PressKey(VkEscape);
+
+    // A key pressed and let go, as the window gets it. Ctrl, Alt, Shift and Win can't be
+    // sent along: WinForms reads them from the real keyboard, not from the message.
+    public void PressKey(int virtualKey)
     {
-        PostMessage(Handle, WmKeyDown, new IntPtr(VkEscape), IntPtr.Zero);
-        PostMessage(Handle, WmKeyUp, new IntPtr(VkEscape), IntPtr.Zero);
+        PostMessage(Handle, WmKeyDown, new IntPtr(virtualKey), IntPtr.Zero);
+        PostMessage(Handle, WmKeyUp, new IntPtr(virtualKey), IntPtr.Zero);
     }
 
     // What a click on the window's X sends.

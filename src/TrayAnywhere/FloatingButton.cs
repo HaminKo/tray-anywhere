@@ -51,8 +51,9 @@ internal sealed class FloatingButton : Form
 
     // monitor: the monitor the button is on. place: where the user last dragged
     // it there, or null for just above the right end of the taskbar. look: its color,
-    // size and always on top. menu: its right-click menu (AppMenu), disposed with the button.
-    public FloatingButton(Screen monitor, Point? place, ButtonLook look, ContextMenuStrip menu)
+    // size and always on top. hotkeyName: the keys that open the grid too, for its tooltip.
+    // menu: its right-click menu (AppMenu), disposed with the button.
+    public FloatingButton(Screen monitor, Point? place, ButtonLook look, string hotkeyName, ContextMenuStrip menu)
     {
         Monitor = monitor;
         this.look = look;
@@ -70,7 +71,7 @@ internal sealed class FloatingButton : Form
         AutoScaleMode = AutoScaleMode.None;
         SetColors();
         BackColor = background;
-        toolTip.SetToolTip(this, $"Tray icons ({App.HotkeyName})");
+        ShowHotkey(hotkeyName);
 
         ContextMenuStrip = menu;
 
@@ -82,6 +83,9 @@ internal sealed class FloatingButton : Form
 
     // The monitor the button is on.
     public Screen Monitor { get; }
+
+    // The tooltip names the keys that open the grid too.
+    public void ShowHotkey(string hotkeyName) => toolTip.SetToolTip(this, $"Tray icons ({hotkeyName})");
 
     // True when the button is in the top half of its monitor: the grid then opens below
     // it and the arrow points down. One rule for both, so they always agree.

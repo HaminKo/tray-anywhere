@@ -5,7 +5,7 @@ using System.Windows.Forms;
 namespace TrayAnywhere;
 
 // tray-anywhere: shows the main taskbar's tray icons in a grid on the monitor the mouse
-// is on. Alt+` opens and closes the grid.
+// is on. A hotkey (Alt+` by default, set in the settings window) opens and closes the grid.
 internal static class Program
 {
     // WinForms windows need a single-threaded COM apartment on the UI thread.
@@ -51,11 +51,14 @@ internal static class Program
         // beside another test's, which would share its settings file and Run key.
         var lockName = guiTest ? @"Local\tray-anywhere-gui" : @"Local\tray-anywhere";
         using var oneCopy = new Mutex(initiallyOwned: true, lockName, out var isFirstCopy);
+        // Read first, for the hotkey's name in the message below.
+        var settings = Settings.Load(settingsPath, out var settingsProblem);
         if (!isFirstCopy)
         {
             // Say so: the app has no window of its own, so starting it again would
             // otherwise seem to do nothing.
-            MessageBox.Show($"tray-anywhere is already running. {App.HotkeyName} opens its grid.", "tray-anywhere");
+            var keys = settings.Hotkey ?? HotkeyKeys.Default;
+            MessageBox.Show($"tray-anywhere is already running. {keys.Name()} or its floating button opens its grid.", "tray-anywhere");
             return;
         }
 
@@ -71,7 +74,6 @@ internal static class Program
         // and with no secondary monitor the app has no window yet, so it is made here.
         SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
 
-        var settings = Settings.Load(settingsPath, out var settingsProblem);
         // Said before the app starts: once it runs, its grid and buttons (always on top)
         // could open over this message while it waits for an answer.
         if (settingsProblem != null)
@@ -81,14 +83,29 @@ internal static class Program
                 "It starts with the buttons and the grid in their usual places, and won't change the file until it can read it.",
                 "tray-anywhere");
         }
-        using var app = new App(settings, new Autostart(registryKey), useHotkey: !guiTest, new SteamMenu(alsoGuiTest: guiTest));
-        if (app.HotkeyTaken)
+        // The hotkey before the app, so that if another program has the keys, that is said
+        // before the app's buttons are there to open the grid over the message, and before
+        // its first tray read when it can't start at all. The GUI test's copy leaves the keys
+        // to the user's copy (the test sends the hotkey's message itself).
+        var hotkey = new Hotkey(settings.Hotkey ?? HotkeyKeys.Default, use: !guiTest);
+        if (hotkey.Taken)
         {
+            var keys = hotkey.Current.Name();
+            // With no floating button either, nothing would open the grid or the settings.
+            if (!Array.Exists(Screen.AllScreens, settings.ButtonOn))
+            {
+                MessageBox.Show(
+                    $"{keys} is already used by another program, and no monitor has a floating button, so tray-anywhere can't open its grid.",
+                    "tray-anywhere");
+                hotkey.Dispose();
+                return;
+            }
             MessageBox.Show(
-                $"{App.HotkeyName} is already used by another program, so tray-anywhere can't open its grid.",
+                $"{keys} is already used by another program, so tray-anywhere starts without a hotkey. " +
+                "Its floating buttons open the grid, and Settings... in their right-click menu sets other keys.",
                 "tray-anywhere");
-            return;
         }
+        using var app = new App(settings, new Autostart(registryKey), hotkey, new SteamMenu(alsoGuiTest: guiTest));
         Application.Run(app);
     }
 }

@@ -102,8 +102,8 @@ internal sealed class TestedApp : IDisposable
         return null;
     }
 
-    // Sends the app's hidden hotkey window the message Windows sends it for Alt+`. The
-    // real keys would reach the user's copy, or the window in front.
+    // Sends the app's hidden hotkey window the message Windows sends it for the hotkey
+    // (Alt+` by default). The real keys would reach the user's copy, or the window in front.
     public void PressHotkey()
     {
         var window = HotkeyWindow();

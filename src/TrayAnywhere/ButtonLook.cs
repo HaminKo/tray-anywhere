@@ -35,7 +35,7 @@ internal sealed record ButtonLook
 {
     public ButtonColor Color { get; init; } = ButtonColor.Dark;
     public ButtonSize Size { get; init; } = ButtonSize.Small;
-    // Off: a normal window, which any window over it hides. Alt+` still works there.
+    // Off: a normal window, which any window over it hides. The hotkey still works there.
     public bool OnTop { get; init; } = true;
 }
 

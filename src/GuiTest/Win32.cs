@@ -22,6 +22,8 @@ internal static class Win32
     // With WM_LBUTTONDOWN and WM_MOUSEMOVE: the left mouse button is down.
     public const int MkLButton = 0x1;
     public const int VkEscape = 0x1B;
+    public const int VkA = 0x41;
+    public const int VkF9 = 0x78;
     // With WM_SYSCOMMAND: what a click on a window's X sends.
     public const int ScClose = 0xF060;
     public const int GwlExStyle = -20;

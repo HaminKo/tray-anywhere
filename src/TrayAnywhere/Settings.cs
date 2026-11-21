@@ -16,7 +16,7 @@ internal sealed record Offset(int X, int Y);
 
 // The settings file (%APPDATA%\tray-anywhere\settings.json): where the user dragged each
 // floating button and the grid, per monitor, the grid's icon order, which monitors have a
-// button and how each looks. Each change saves it at once.
+// button and how each looks, and the hotkey. Each change saves it at once.
 internal sealed class Settings
 {
     // By the monitor's name without "\\.\" (e.g. DISPLAY5). Windows can give a monitor a
@@ -35,6 +35,10 @@ internal sealed class Settings
     // Each monitor's floating button: its color, size and always on top, by name as above.
     // A monitor not listed has the defaults (ButtonLook).
     public Dictionary<string, ButtonLook> ButtonLooks { get; set; } = new();
+    // The keys that open and close the grid. Not in the file (or null): the default,
+    // Alt+`, which isn't written, so the file holds only what the user changed.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public HotkeyKeys? Hotkey { get; set; }
 
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tray-anywhere", "settings.json");
@@ -131,6 +135,13 @@ internal sealed class Settings
     public void SetLook(Screen monitor, ButtonLook look)
     {
         ButtonLooks[Key(monitor)] = look;
+        Save();
+    }
+
+    // The hotkey in the settings window.
+    public void SetHotkey(HotkeyKeys keys)
+    {
+        Hotkey = keys == HotkeyKeys.Default ? null : keys;
         Save();
     }
 
