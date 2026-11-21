@@ -33,8 +33,10 @@ internal sealed class App : ApplicationContext
     private long lastRead;
     // Where the user dragged the buttons, the grid and its icons; saved at each drag.
     private readonly Settings settings;
-    // "Start with Windows" in every window's right-click menu.
+    // "Start with Windows" in the settings window.
     private readonly Autostart autostart;
+    // The open settings window, or null.
+    private SettingsForm? settingsWindow;
     // One floating button per secondary monitor; made again when the monitors change.
     private readonly List<FloatingButton> buttons = [];
     // The open grid, or null.
@@ -204,10 +206,11 @@ internal sealed class App : ApplicationContext
 
     // Windows raises this when a monitor is plugged in or out, or its resolution or place
     // changes. The buttons are made again for the monitors there are now, and an open
-    // grid closes: each was laid out for its monitor as it was.
+    // grid or settings window closes: each was laid out for its monitor as it was.
     private void OnMonitorsChanged(object? sender, EventArgs e)
     {
         grid?.Close();
+        settingsWindow?.Close();
         foreach (var button in buttons)
         {
             button.Close();
@@ -254,8 +257,32 @@ internal sealed class App : ApplicationContext
     // The right-click menu of a button or of the grid on this monitor. On a secondary
     // monitor it can switch that monitor's button.
     private ContextMenuStrip NewMenu(Screen monitor) => monitor.Primary
-        ? AppMenu.Create(autostart, ResetIconOrder, null, null)
-        : AppMenu.Create(autostart, ResetIconOrder, () => settings.ButtonOn(monitor), on => SetButtonOn(monitor, on));
+        ? AppMenu.Create(() => OpenSettings(monitor), ResetIconOrder, null, null)
+        : AppMenu.Create(() => OpenSettings(monitor), ResetIconOrder, () => settings.ButtonOn(monitor), on => SetButtonOn(monitor, on));
+
+    // "Settings...": the settings window in the middle of this monitor. One at a time: open
+    // here, it comes to the front, showing the settings as they are now; open on another
+    // monitor, it moves here (closed there, opened here, like the grid), so it is always
+    // laid out for the monitor it is on.
+    private void OpenSettings(Screen monitor)
+    {
+        if (settingsWindow != null && settingsWindow.Monitor.DeviceName != monitor.DeviceName)
+        {
+            // Closed at once: FormClosed below has run when Close returns.
+            settingsWindow.Close();
+        }
+        if (settingsWindow == null)
+        {
+            settingsWindow = new SettingsForm(monitor, autostart);
+            settingsWindow.FormClosed += (_, _) => settingsWindow = null;
+            settingsWindow.Show();
+        }
+        else
+        {
+            settingsWindow.ShowSettings();
+        }
+        settingsWindow.Activate();
+    }
 
     // "Reset icon order": the tray's own order again, in an open grid too.
     private void ResetIconOrder()
@@ -309,6 +336,7 @@ internal sealed class App : ApplicationContext
             {
                 button.Dispose();
             }
+            settingsWindow?.Dispose();
             refreshTimer.Dispose();
             hotkey.Dispose();
             steamMenu.Dispose();

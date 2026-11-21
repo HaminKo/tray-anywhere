@@ -29,12 +29,14 @@ Each monitor other than the main one also gets a small button with an arrow, jus
 
 Don't want the button on a monitor? Right-click it and untick "Floating button on this monitor". Alt+` then opens the popup at that monitor's bottom right, and the same item in the popup's right-click menu there brings the button back.
 
+Settings... in the same right-click menu opens a small window with the settings for the whole app. A change there applies at once; close it with its X or Escape.
+
 Where you dragged the buttons, the popup and its icons, and which buttons are off, are kept in `$env:APPDATA\tray-anywhere\settings.json`. Delete that file (with tray-anywhere closed) to go back to the defaults.
 
 Windows' notifications (and tray apps' balloons) also follow the mouse: while it is on another monitor, they show at that monitor's bottom right instead of the main one's.
 
 ## Start with Windows
-Right-click a floating button or the popup's background and choose Start with Windows. Windows now starts tray-anywhere from its folder each time you sign in. Choose it again to turn it off. If you move the folder, choose it again from the new place.
+Right-click a floating button or the popup's background, choose Settings... and tick Start with Windows. Windows now starts tray-anywhere from its folder each time you sign in. Untick it to turn it off. If you move the folder, tick it again from the new place.
 
 ## Build from source
 You need the .NET 10 SDK:

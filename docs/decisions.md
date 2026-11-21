@@ -2,6 +2,27 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-21: Each floating button's settings are per monitor, picked from a list in the settings window
+- What: the settings window lists the monitors as radio buttons: "Main monitor" first, then the external ones named by place from left to right ("Left monitor", "Right monitor"; one: "External monitor"; three or more: "Monitor 1 from the left"), each with its size in pixels and "this one" for the window's own monitor. Below the list, the picked monitor's button: on or off ("Floating button on this monitor", moved from the right-click menu), color, size, always on top. The main monitor can have a button too, off by default (`MainButtonOn`, kept for whichever monitor is the main one, not by name). Start with Windows stays above the list, for the whole app. The list starts at the window's own monitor.
+- Reason: the owner wants each button set on its own (always on top off on one monitor only, say) and to pick the button in the window itself; and a button on the main monitor as an option, now that there is a place for settings (the main taskbar has the real tray, so off by default). Names by place need no new Windows calls and fit the owner's layout.
+- Decided by: the owner (per monitor, a list in the window, the main monitor's button off by default); Claude (names, radio buttons, the switch moving in; the owner: "go with your suggestions"), To do 17 after step A.
+- Rejected:
+  - The window showing only the monitor it is open on (Claude's suggestion): the owner wants the list.
+  - One look for all buttons (the 2026-11-20 entry below).
+  - DISPLAY5 as a name: means nothing to the user. Windows' model names ("DELL U2720Q"): about 80 lines of display-config calls (estimated), and two monitors of one model would still need their place.
+  - A dropdown for the monitors: radio buttons show them all at once, and the GUI test can pick one with UI Automation.
+
+## 2026-11-20: A settings window for the app-wide settings; the per-monitor button switch stays in the menu
+- What: "Settings..." in the right-click menu of the buttons and the grid opens a dark window in the middle of that monitor: Start with Windows (moved from the menu), and for all floating buttons a color (Dark, Windows' accent color, Blue, Green, Orange, Red, Purple), a size (32, 40 or 48 px at 100 %) and Always on top (on by default). A change applies at once and is saved; no OK or Cancel; X or Escape closes it; one window at a time; not always on top. It stays on its monitor while dragged, like the grid (Claude, step A: moved to another scaling, WinForms resized its text but not the window; docs/research/winforms-dpi.md). "Floating button on this monitor", Reset icon order and Exit stay in the menu. Built in two steps (To do 17): the window with Start with Windows, then the button settings.
+- Reason: with the owner's three new settings there are five, past the "about four" of 2026-11-19. Before they were named, Claude advised against a window for two settings (monitor names, WinForms' scaling of standard controls, two clicks instead of one); the owner chose to build it and named the settings.
+- Decided by: the owner (the settings; the rest Claude's suggestions), To do 17.
+- Rejected:
+  - "Floating button on this monitor" in the window: a list of monitors needs names, and Windows gives only "DISPLAY5"; real names take about 50 lines of display-config calls (estimated). In the menu it needs none.
+  - Color, size and on-top for the grid: its icon pictures have the taskbar's dark background (a lighter grid shows dark squares) and are copied at the tray's own size (bigger only stretches them); the grid stays on top until its X (2026-11-14).
+  - Windows' color picker: light, not dark like the app, and hard for the GUI test to work.
+  - Always on top off as the fix for full-screen video: a window over the button hides it; hiding only under a full-screen program is To do 18 (Someday).
+- Replaced in part (2026-11-21, after step A): the buttons' settings are per monitor, and "Floating button on this monitor" moves into the window (see the entry above).
+
 ## 2026-11-19: No settings window: one menu item turns the floating button off per monitor
 - What: "Floating button on this monitor", a ticked item in the right-click menu of a secondary monitor's button and of the grid there (not on the main monitor, which has no button). Unticked, the button closes and its monitor is kept in settings.json (`ButtonsOff`, monitor names); the hotkey then opens the grid there as on the main monitor (bottom right, or where it was last dragged there). Ticked again from the grid's menu, the button comes back at its old place. A grid open on that monitor closes and opens again at its new place. No reset item: deleting settings.json resets everything (README).
 - Reason: a settings window pays off only with about four settings or one that must be typed; with one on/off setting a menu item is less code, sits beside the other settings, and the GUI test can click it. The button off addresses a known limitation (it stays on top, also over full-screen video).
@@ -11,6 +32,7 @@ Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what wa
   - The hotkey as a setting: the 2026-11-14 decision stands (fixed until it clashes); a key-capture box is ~100 lines and only testable by hand.
   - Refresh times and icon size as settings: nothing has come up; refresh times must not become a test shortcut ("Tests run at the app's real speed").
   - One switch for all buttons: with two external monitors, one may want its button and the other not.
+- Replaced in part (2026-11-20, To do 17): a settings window now holds Start with Windows and the buttons' look; this menu item stays (see the entry above).
 
 ## 2026-11-19: Drag to reorder: the grid's own order per section, kept by the program's file name
 - What: a tile dragged in the grid takes the place under its centre; the other tiles of its section make room as it passes, and the release doesn't click the icon. Only within its section: a tile dropped over the other section goes to the nearest place in its own. The order is saved in settings.json as a list of keys per section (`PinnedOrder`, `OverflowOrder`), and each read is sorted by it: known icons in the saved order, new ones after them in tray order. Saved keys of icons not there during a drag keep their old places in the list, so a closed program gets its place back. "Reset icon order" in the right-click menu (buttons and grid) empties both lists.

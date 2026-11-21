@@ -116,6 +116,7 @@ internal static class Program
                 var (draggedPlace, draggedIcon) = FirstRun(settingsPath, monitors, savedPlace);
                 IconOrderAfterRestart(settingsPath, monitors[0], draggedIcon);
                 AfterRestart(settingsPath, monitors, draggedPlace);
+                SettingsWindow(settingsPath, monitors);
                 ButtonOff(settingsPath, monitors);
                 if (userCopy)
                 {
@@ -221,15 +222,14 @@ internal static class Program
         WaitUntil($"{what} ({Key(mouse)})", () => Win32.Bounds(toast).Location == expected, seconds: 2, () => $"at {Win32.Bounds(toast)}, expected {expected}");
     }
 
-    // Started again, the button is where it was dragged, Start with Windows in its
-    // right-click menu turns on and off, and Exit there ends the app. Before any grid
-    // opens: once the app has been in front and lost it, WinForms doesn't show a menu
-    // opened by a message, though a real right-click works (docs/research/gui-testing.md).
+    // Started again, the button is where it was dragged, Reset icon order in its
+    // right-click menu works, and Exit there ends the app. Before any grid opens: once
+    // the app has been in front and lost it, WinForms doesn't show a menu opened by a
+    // message, though a real right-click works (docs/research/gui-testing.md).
     private static void AfterRestart(string settingsPath, List<Screen> monitors, Point draggedPlace)
     {
         using var app = new TestedApp(settingsPath);
         var buttons = CheckButtons(app, monitors, draggedPlace);
-        StartWithWindows(app, buttons[0]);
         ResetIconOrder(app, buttons[0], settingsPath);
         buttons[0].RightClick();
         var exit = WaitFor("the button's right-click menu opens, with Exit", () => app.MenuItem("Exit tray-anywhere"));
@@ -238,13 +238,17 @@ internal static class Program
         Check(app.ExitCode == 0, "with exit code 0", $"exit code {app.ExitCode}");
     }
 
-    // Start with Windows, clicked three times in the button's right-click menu, in the
-    // test's own Run and Startup apps keys. The Run key starts out with another copy's exe
-    // (a build folder, say), which counts as off; the first click points it at the tested
-    // app's exe. Then a "turned off" as Task Manager's Startup apps writes it counts as off
-    // too; the second click deletes it. Then a "turned on" from Startup apps counts as on;
-    // the third click deletes it and the Run value. Windows' own keys stay as they were.
-    private static void StartWithWindows(TestedApp app, AppWindow button)
+    // Start with Windows, clicked in the settings window three times, in the test's own
+    // Run and Startup apps keys. The Run key starts out with another copy's exe (a build
+    // folder, say), which counts as off; the first click points it at the tested app's
+    // exe. Then a "turned off" as Task Manager's Startup apps writes it counts as off too;
+    // the second click deletes it. Then a "turned on" from Startup apps counts as on; the
+    // third click deletes it and the Run value. Windows' own keys stay as they were. Each
+    // click in a copy of the app started again for it: once the settings window has shown,
+    // the app no longer opens a menu from the test's message, so "Settings..." works only
+    // once per copy (measured; the user's real right-click isn't affected, see AfterRestart).
+    // The window opens on the first secondary monitor, then on the last.
+    private static void SettingsWindow(string settingsPath, List<Screen> monitors)
     {
         var windowsValues = (TestedApp.RunValue(TestedApp.WindowsKey), TestedApp.StartupAppsValue(TestedApp.WindowsKey));
         using (var key = Registry.CurrentUser.CreateSubKey(TestedApp.TestKey + TestedApp.RunKey))
@@ -253,17 +257,32 @@ internal static class Program
         }
         // In quotes, as Windows needs a path that may hold a space.
         var command = $"\"{TestedApp.Exe}\"";
-        ClickStartWithWindows(app, button, "Start with Windows is off while the Run key holds another copy's exe",
-            ticked: false, "a click on it writes the app's exe to the Run key", expectedRun: command);
+        var last = monitors[^1];
+        using (var app = new TestedApp(settingsPath))
+        {
+            var window = ClickStartWithWindows(app, monitors[0], "Start with Windows is off while the Run key holds another copy's exe",
+                ticked: false, "a click on it writes the app's exe to the Run key", expectedRun: command);
+            Check(!window.IsOnTop, "the settings window isn't always on top", "it is");
+            window.PressEscape();
+            WaitUntil("Escape closes it", () => app.SettingsWindow() == null);
+            // Windows may hand the front to one of the app's buttons.
+            app.GiveFrontBack();
+        }
         // 1 (turned off) and when, as a FILETIME: what Task Manager wrote on the owner's PC
         // (docs/research/startup-apps.md).
         SetStartupAppsValue([1, 0, 0, 0, .. BitConverter.GetBytes(DateTime.Now.ToFileTime())]);
-        ClickStartWithWindows(app, button, "Start with Windows is off while Startup apps says turned off",
-            ticked: false, "a second click deletes that, and the Run value stays", expectedRun: command);
+        using (var app = new TestedApp(settingsPath))
+        {
+            ClickStartWithWindows(app, last, "Start with Windows is off while Startup apps says turned off",
+                ticked: false, "a second click deletes that, and the Run value stays", expectedRun: command);
+        }
         // 2 (turned on), then 8 zero bytes: what Task Manager writes when turned on again.
         SetStartupAppsValue([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-        ClickStartWithWindows(app, button, "Start with Windows is on while Startup apps says turned on",
-            ticked: true, "a third click deletes that and the Run value", expectedRun: null);
+        using (var app = new TestedApp(settingsPath))
+        {
+            ClickStartWithWindows(app, last, "Start with Windows is on while Startup apps says turned on",
+                ticked: true, "a third click deletes that and the Run value", expectedRun: null);
+        }
         Check((TestedApp.RunValue(TestedApp.WindowsKey), TestedApp.StartupAppsValue(TestedApp.WindowsKey)) == windowsValues,
             "Windows' own Run and Startup apps values are unchanged", "they changed");
     }
@@ -344,22 +363,38 @@ internal static class Program
         key.SetValue("tray-anywhere", value, RegistryValueKind.Binary);
     }
 
-    // Opens the button's menu, checks the tick, clicks Start with Windows, and waits for
-    // the Run value to become expectedRun (null: none) and for no Startup apps value. The
-    // menu closes at each click and is opened again, so its tick is seen as it is when it
-    // opens.
-    private static void ClickStartWithWindows(TestedApp app, AppWindow button, string tickCheck, bool ticked, string clickCheck, string? expectedRun)
+    // In a freshly started app: opens the settings window from the right-click menu of
+    // the button on this monitor and checks it is in the middle of the monitor. Then
+    // checks the tick of Start with Windows, clicks it, and waits for the Run value to
+    // become expectedRun (null: none) and for no Startup apps value.
+    private static AppWindow ClickStartWithWindows(TestedApp app, Screen monitor, string tickCheck, bool ticked, string clickCheck, string? expectedRun)
     {
+        var button = WaitFor($"started again, the app shows its button on {Key(monitor)}", () => app.Buttons().Find(b => IsOn(b, monitor)));
         button.RightClick();
-        var item = WaitFor("the button's right-click menu opens, with Start with Windows", () => app.MenuItem("Start with Windows"));
-        Check(AppWindow.IsTicked(item) == ticked, tickCheck, ticked ? "it isn't ticked" : "it is ticked");
+        var item = WaitFor("the button's right-click menu opens, with Settings...", () => app.MenuItem("Settings..."));
         AppWindow.Invoke(item);
+        // The menu may close only after the click has run (as WinForms' code is
+        // remembered; not measured): a menu found before that would be the old one.
+        WaitUntil("the menu closes", () => app.MenuItem("Settings...") == null);
+        var window = WaitFor($"the settings window shows on {Key(monitor)}", () => app.SettingsWindow() is AppWindow open && IsOn(open, monitor) ? open : null);
+        app.GiveFrontBack();
+        CheckInMiddle(window, monitor);
+        var box = WaitFor("it has Start with Windows", () => window.Control("Start with Windows"));
+        Check(AppWindow.IsTicked(box) == ticked, tickCheck, ticked ? "it isn't ticked" : "it is ticked");
+        AppWindow.Toggle(box);
         WaitUntil(clickCheck,
             () => TestedApp.RunValue(TestedApp.TestKey) == expectedRun && TestedApp.StartupAppsValue(TestedApp.TestKey) == null,
             found: () => $"the Run value is {TestedApp.RunValue(TestedApp.TestKey) ?? "missing"}, the Startup apps value {TestedApp.StartupAppsValue(TestedApp.TestKey) ?? "missing"}");
-        // The menu may close only after the click has run (as WinForms' code is
-        // remembered; not measured): a menu found before that would be the old one.
-        WaitUntil("the menu closes", () => app.MenuItem("Start with Windows") == null);
+        return window;
+    }
+
+    // The settings window in the middle of its monitor's free area.
+    private static void CheckInMiddle(AppWindow window, Screen monitor)
+    {
+        var bounds = window.Bounds;
+        var area = monitor.WorkingArea;
+        var middle = new Point(area.X + (area.Width - bounds.Width) / 2, area.Y + (area.Height - bounds.Height) / 2);
+        Check(bounds.Location == middle, "it is in the middle of its monitor", $"it is at {bounds.Location}, the middle at {middle}");
     }
 
     // One floating button per secondary monitor, always on top: on the first monitor at

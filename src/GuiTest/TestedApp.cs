@@ -78,6 +78,9 @@ internal sealed class TestedApp : IDisposable
     // The open grid, or null.
     public AppWindow? Grid() => TopWindows(new PropertyCondition(AutomationElement.AutomationIdProperty, "Grid")).FirstOrDefault();
 
+    // The open settings window, or null.
+    public AppWindow? SettingsWindow() => TopWindows(new PropertyCondition(AutomationElement.AutomationIdProperty, "Settings")).FirstOrDefault();
+
     // The grid's tiles in their order: the Pinned ones, then the Overflow ones.
     public static List<AppWindow> Tiles(AppWindow grid) =>
         Find(grid.Element, TreeScope.Children, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.Button));
@@ -139,7 +142,7 @@ internal sealed class TestedApp : IDisposable
         GetWindowThreadProcessId(GetForegroundWindow(), out var processId);
         if (processId == process.Id && !SetForegroundWindow(userWindow))
         {
-            Console.WriteLine("note  the grid has the keyboard: don't type until the test ends");
+            Console.WriteLine("note  the app has the keyboard: don't type until the test ends");
         }
     }
 

@@ -4,7 +4,6 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Tray;
 
@@ -294,22 +293,13 @@ internal sealed class GridForm : Form
         Dragged?.Invoke(Location);
     }
 
+    // Kept on its monitor while dragged: it is laid out for that monitor's scaling only.
     protected override void WndProc(ref Message m)
     {
-        // While the user drags the grid, Windows asks with WM_MOVING where it may go: keep
-        // it on its monitor. It is laid out for that monitor's scaling only.
-        if (m.Msg == WmMoving)
+        if (!TopWindow.KeepOnMonitor(ref m, area))
         {
-            var r = Marshal.PtrToStructure<Win32Rect>(m.LParam);
-            var size = new Size(r.Right - r.Left, r.Bottom - r.Top);
-            var place = TopWindow.KeepInside(area, new Point(r.Left, r.Top), size);
-            r = new Win32Rect { Left = place.X, Top = place.Y, Right = place.X + size.Width, Bottom = place.Y + size.Height };
-            Marshal.StructureToPtr(r, m.LParam, false);
-            // Handled: Windows moves the window to the changed rectangle.
-            m.Result = 1;
-            return;
+            base.WndProc(ref m);
         }
-        base.WndProc(ref m);
     }
 
     // Makes the tiles and texts for this read, in place of any made before, and works out
@@ -549,9 +539,7 @@ internal sealed class GridForm : Form
     protected override void OnHandleCreated(EventArgs e)
     {
         base.OnHandleCreated(e);
-        // A dark title bar, to match the grid. Windows draws title bars light unless asked.
-        var dark = 1;
-        DwmSetWindowAttribute(Handle, DwmUseImmersiveDarkMode, ref dark, sizeof(int));
+        DarkTitleBar.Use(Handle);
     }
 
     protected override void Dispose(bool disposing)
@@ -569,17 +557,6 @@ internal sealed class GridForm : Form
 
     // The problem line wraps at word ends.
     private const TextFormatFlags ProblemFlags = TextFormatFlags.WordBreak | TextFormatFlags.NoPrefix;
-    private const int WmMoving = 0x0216;
-    private const int DwmUseImmersiveDarkMode = 20;
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct Win32Rect
-    {
-        public int Left, Top, Right, Bottom;
-    }
-
-    [DllImport("dwmapi.dll")]
-    private static extern int DwmSetWindowAttribute(IntPtr window, int attribute, ref int value, int size);
 
     // A text the grid draws itself, in this rectangle, with this font and colour.
     private sealed record Caption(string Text, Font Font, Color Color, Rectangle Bounds, TextFormatFlags Flags);

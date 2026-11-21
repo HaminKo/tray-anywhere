@@ -6,9 +6,10 @@ using static GuiTest.Win32;
 
 namespace GuiTest;
 
-// One of the app's windows as UI Automation finds it: the grid, a floating button or a
-// tile (in WinForms each control is a window of its own). The test works it with messages
-// to this window only, the ones Windows would send it for the real mouse and keyboard.
+// One of the app's windows as UI Automation finds it: the grid, a floating button, the
+// settings window or a tile (in WinForms each control is a window of its own). The test
+// works it with messages to this window only, the ones Windows would send it for the
+// real mouse and keyboard.
 internal sealed class AppWindow
 {
     public AppWindow(AutomationElement element)
@@ -112,7 +113,15 @@ internal sealed class AppWindow
     public static void Invoke(AutomationElement element) =>
         ((InvokePattern)element.GetCurrentPattern(InvokePattern.Pattern)).Invoke();
 
-    // True when a menu item with a tick (WinForms' CheckOnClick) is ticked.
+    // True when a menu item with a tick (WinForms' CheckOnClick) or a checkbox is ticked.
     public static bool IsTicked(AutomationElement element) =>
         ((TogglePattern)element.GetCurrentPattern(TogglePattern.Pattern)).Current.ToggleState == ToggleState.On;
+
+    // UI Automation's Toggle on a checkbox: WinForms runs its click, as for Space or a click.
+    public static void Toggle(AutomationElement element) =>
+        ((TogglePattern)element.GetCurrentPattern(TogglePattern.Pattern)).Toggle();
+
+    // A control in this window with this name (a checkbox's text), or null.
+    public AutomationElement? Control(string name) =>
+        Element.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name));
 }
