@@ -1,12 +1,13 @@
 ## Where we are
-- Now: No to-dos open (pick one from Someday, or Before a public release)
+- Now: To do 21 (Change the hotkey in the settings window)
 - Next: none
 - Updated: 2026-11-21
 
 ## To do
-Next number: 21. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
+Next number: 22. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
+- To do 21: Change the hotkey in the settings window, with a way back to the default (medium; user 2026-11-21): docs/todo/21-hotkey-setting.md
 
 ### Bugs me
 
