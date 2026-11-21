@@ -1,5 +1,5 @@
 ## Where we are
-- Now: To do 17, step B (the monitor list, with the button's on/off)
+- Now: To do 17, step C (the monitors drawn as an outline, at the top)
 - Next: none
 - Updated: 2026-11-21
 

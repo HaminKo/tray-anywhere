@@ -6,11 +6,11 @@ using System.Windows.Forms;
 
 namespace TrayAnywhere;
 
-// The settings window, opened by "Settings..." in the right-click menu: the settings of
-// the whole app. A change applies at once and is saved, so there is no OK or Cancel; its
-// X or Escape closes it. "Floating button on this monitor" stays in the menu, where "this
-// monitor" needs no name (Windows only names monitors like DISPLAY5). Plain WinForms
-// controls, coloured dark like the grid.
+// The settings window, opened by "Settings..." in the right-click menu: Start with
+// Windows for the whole app, then a list of the monitors (MonitorNames) and the settings
+// of the picked monitor's floating button. A change applies at once and is saved, so
+// there is no OK or Cancel; its X or Escape closes it. Plain WinForms controls, coloured
+// dark like the grid.
 internal sealed class SettingsForm : Form
 {
     // Sizes at 100 % scaling, in pixels: the text as in the grid, and the space around it.
@@ -24,22 +24,42 @@ internal sealed class SettingsForm : Form
     private static readonly Color TextColor = Color.FromArgb(220, 220, 220);
 
     private readonly Autostart autostart;
+    // Whether a monitor has a floating button, and what switching it does (App).
+    private readonly Func<Screen, bool> buttonOn;
+    private readonly Action<Screen, bool> setButtonOn;
     // The monitor's free area; the window opens in its middle.
     private readonly Rectangle area;
     // The controls in rows: a name on the left, its control on the right, or one control
     // across both.
     private readonly TableLayoutPanel layout = new() { AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 2 };
     private readonly CheckBox startWithWindows = new() { Text = "Start with Windows", AutoSize = true };
+    private readonly Label buttonHeading = new() { Text = "Floating button settings for:", AutoSize = true };
+    // The monitors' radio buttons, in a panel of their own: WinForms makes the radio
+    // buttons of one parent a group, so no later control can join theirs.
+    private readonly FlowLayoutPanel monitorList = new()
+    {
+        AutoSize = true,
+        AutoSizeMode = AutoSizeMode.GrowAndShrink,
+        FlowDirection = FlowDirection.TopDown,
+        WrapContents = false,
+    };
+    private readonly CheckBox showButton = new() { Text = "Show the floating button", AutoSize = true };
+    // The monitor picked in the list: the settings below it are for its button.
+    private Screen picked;
     // The text's font at the window's scaling (ScaleTo); null until the window exists.
     private Font? textFont;
     // True while ShowSettings sets the ticks, so that isn't taken for a change by the user.
     private bool showing;
 
-    public SettingsForm(Screen monitor, Autostart autostart)
+    // monitor: the one the window opens on; the list starts with it picked.
+    public SettingsForm(Screen monitor, Autostart autostart, Func<Screen, bool> buttonOn, Action<Screen, bool> setButtonOn)
     {
         Monitor = monitor;
         this.autostart = autostart;
+        this.buttonOn = buttonOn;
+        this.setButtonOn = setButtonOn;
         area = monitor.WorkingArea;
+        picked = monitor;
 
         Text = "tray-anywhere settings";
         // Its AutomationId in UI Automation, by which the GUI test finds it.
@@ -65,8 +85,32 @@ internal sealed class SettingsForm : Form
                 SetStartWithWindows();
             }
         };
-        layout.Controls.Add(startWithWindows, 0, 0);
-        layout.SetColumnSpan(startWithWindows, 2);
+        foreach (var named in MonitorNames.InOrder(monitor))
+        {
+            var radio = new RadioButton { Text = named.Name, AutoSize = true, Checked = named.Monitor.DeviceName == monitor.DeviceName };
+            // Raised for the radio button losing its dot too; only the one getting it acts.
+            radio.CheckedChanged += (_, _) =>
+            {
+                if (radio.Checked)
+                {
+                    picked = named.Monitor;
+                    ShowSettings();
+                }
+            };
+            monitorList.Controls.Add(radio);
+        }
+        showButton.CheckedChanged += (_, _) =>
+        {
+            if (!showing)
+            {
+                setButtonOn(picked, showButton.Checked);
+                ShowSettings();
+            }
+        };
+        AddRow(startWithWindows);
+        AddRow(buttonHeading);
+        AddRow(monitorList);
+        AddRow(showButton);
         Controls.Add(layout);
 
         // Made in the middle of its monitor; OnLoad places it there with its real size.
@@ -77,13 +121,23 @@ internal sealed class SettingsForm : Form
     // The monitor the window was opened on.
     public Screen Monitor { get; }
 
-    // Shows the settings as they are now. Start with Windows is read from the registry,
-    // not kept: Task Manager's Startup apps may have turned it off since.
+    // Shows the settings as they are now, for the picked monitor. Start with Windows is
+    // read from the registry, not kept: Task Manager's Startup apps may have turned it off
+    // since.
     public void ShowSettings()
     {
         showing = true;
         startWithWindows.Checked = autostart.IsOn;
+        showButton.Checked = buttonOn(picked);
         showing = false;
+    }
+
+    // A control in a row of its own, across both columns.
+    private void AddRow(Control control)
+    {
+        layout.Controls.Add(control, 0, layout.RowCount);
+        layout.SetColumnSpan(control, 2);
+        layout.RowCount++;
     }
 
     // As in GridForm: on the 100 % monitor the first move changes the window's scaling
@@ -118,6 +172,9 @@ internal sealed class SettingsForm : Form
         old?.Dispose();
         var space = (int)Math.Round(EdgeSpace * dpi / 96f);
         layout.Location = new Point(space, space);
+        // A gap above the button's settings, apart from Start with Windows. The other
+        // controls keep WinForms' 3 px around them.
+        buttonHeading.Margin = new Padding(3, space, 3, 3);
         var content = layout.PreferredSize;
         var minWidth = (int)Math.Round(MinWidth * dpi / 96f);
         ClientSize = new Size(Math.Max(content.Width + 2 * space, minWidth), content.Height + 2 * space);

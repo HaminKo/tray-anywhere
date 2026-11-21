@@ -27,11 +27,9 @@ Press Alt+` (Alt and the key left of 1): the popup opens on the monitor the mous
 
 Each monitor other than the main one also gets a small button with an arrow, just above the clock. Click it to open or close the popup where the arrow points. The button and the popup stay together: drag either one and the other comes along. To quit, right-click the button or the popup's background and choose Exit.
 
-Don't want the button on a monitor? Right-click it and untick "Floating button on this monitor". Alt+` then opens the popup at that monitor's bottom right, and the same item in the popup's right-click menu there brings the button back.
+Settings... in the same right-click menu opens a small window. A change there applies at once; close it with its X or Escape. To turn a monitor's button on or off, pick that monitor in the window's list and tick or untick "Show the floating button". The main monitor has no button at first, as its taskbar has the real tray. On a monitor without a button, Alt+` opens the popup at the bottom right.
 
-Settings... in the same right-click menu opens a small window with the settings for the whole app. A change there applies at once; close it with its X or Escape.
-
-Where you dragged the buttons, the popup and its icons, and which buttons are off, are kept in `$env:APPDATA\tray-anywhere\settings.json`. Delete that file (with tray-anywhere closed) to go back to the defaults.
+Where you dragged the buttons, the popup and its icons, and which monitors have a button, are kept in `$env:APPDATA\tray-anywhere\settings.json`. Delete that file (with tray-anywhere closed) to go back to the defaults.
 
 Windows' notifications (and tray apps' balloons) also follow the mouse: while it is on another monitor, they show at that monitor's bottom right instead of the main one's.
 
@@ -81,7 +79,7 @@ How the release zip is made: [docs/releasing.md](docs/releasing.md).
 ## Known limitations
 - Some apps open their right-click menu next to the real tray on the main monitor, not at the mouse. tray-anywhere can't change that.
 - Icon pictures may look a little different from the real tray icons. Hidden icons show the picture Windows saved when the app first showed its icon, so a badge or status change (like a red dot) may be missing.
-- The floating button stays on top, so it covers a corner of the window under it, also over full-screen video. Drag it somewhere else, or turn it off for that monitor, if it is in the way.
+- The floating button stays on top, so it covers a corner of the window under it, also over full-screen video. Drag it somewhere else, or turn it off for that monitor in Settings..., if it is in the way.
 - tray-anywhere isn't signed. With Smart App Control turned on (Windows Security > App & browser control), Windows may block it, and Windows has no way to allow a single app there.
 - A Windows update can change how the taskbar is built and break icon detection until tray-anywhere is updated.
 - While a full-screen app or game runs on the main monitor, Windows shows no notifications at all (Do Not Disturb turns on by itself), so there is nothing to move. Settings > System > Notifications > "Turn on do not disturb automatically" can change that, but then notifications also show over your game.

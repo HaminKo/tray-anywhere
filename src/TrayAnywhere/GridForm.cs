@@ -47,7 +47,7 @@ internal sealed class GridForm : Form
     private readonly ToolTip toolTip = new() { ShowAlways = true };
     // The grid's monitor without its taskbar, in physical pixels; the grid stays inside it.
     private readonly Rectangle area;
-    // The floating button on the grid's monitor, or null if it has none (the main one).
+    // The floating button on the grid's monitor, or null if it has none (by default the main one).
     private readonly FloatingButton? button;
     // Where the user last dragged the grid, or null. Only on a monitor without a button:
     // elsewhere the grid is always next to its button (owner's choice).

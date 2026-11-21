@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
 using static GuiTest.Win32;
@@ -121,7 +123,20 @@ internal sealed class AppWindow
     public static void Toggle(AutomationElement element) =>
         ((TogglePattern)element.GetCurrentPattern(TogglePattern.Pattern)).Toggle();
 
+    // UI Automation's Select on a radio button: it gets the dot, as for a click.
+    public static void Select(AutomationElement element) =>
+        ((SelectionItemPattern)element.GetCurrentPattern(SelectionItemPattern.Pattern)).Select();
+
+    // True when a radio button has the dot.
+    public static bool IsSelected(AutomationElement element) =>
+        ((SelectionItemPattern)element.GetCurrentPattern(SelectionItemPattern.Pattern)).Current.IsSelected;
+
     // A control in this window with this name (a checkbox's text), or null.
     public AutomationElement? Control(string name) =>
         Element.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name));
+
+    // The window's radio buttons from top to bottom, as they show.
+    public List<AutomationElement> RadioButtons() =>
+        Element.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton))
+            .Cast<AutomationElement>().OrderBy(radio => radio.Current.BoundingRectangle.Top).ToList();
 }

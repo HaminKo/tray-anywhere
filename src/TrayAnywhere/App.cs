@@ -9,9 +9,10 @@ using Tray;
 namespace TrayAnywhere;
 
 // The running app. It has no main window: it shows a floating button on each secondary
-// monitor (unless turned off there), opens or closes the grid when the hotkey is pressed or a button is clicked,
-// reads the tray again while the grid is open (every 2 s while it is used, every 10 s
-// while not), and passes clicks on the grid to the real tray icons. Each read shows in the
+// monitor (unless turned off there; on the main one only if turned on), opens or closes
+// the grid when the hotkey is pressed or a button is clicked, reads the tray again while
+// the grid is open (every 2 s while it is used, every 10 s while not), and passes clicks
+// on the grid to the real tray icons. Each read shows in the
 // order the user dragged the icons into (IconOrder). The app ends with Exit in the
 // right-click menu of a button or of the grid.
 internal sealed class App : ApplicationContext
@@ -37,7 +38,7 @@ internal sealed class App : ApplicationContext
     private readonly Autostart autostart;
     // The open settings window, or null.
     private SettingsForm? settingsWindow;
-    // One floating button per secondary monitor; made again when the monitors change.
+    // The floating buttons, one per monitor that has one; made again when the monitors change.
     private readonly List<FloatingButton> buttons = [];
     // The open grid, or null.
     private GridForm? grid;
@@ -104,8 +105,8 @@ internal sealed class App : ApplicationContext
             var state = await reader.ReadAsync(openIfMissing: true);
             // The monitor's button, if it has one: the grid and the button stay together, so
             // the button alone says where the grid is on its monitor (owner's choice). Only
-            // on a monitor without a button (the main one) does the grid keep a place of its
-            // own, where it was last dragged.
+            // on a monitor without a button (by default the main one) does the grid keep a
+            // place of its own, where it was last dragged.
             var button = ButtonOf(monitor);
             grid = new GridForm(Sorted(state), monitor, button == null ? settings.GridPlace(monitor) : null, button, NewMenu(monitor));
             grid.FormClosed += (_, _) => ForgetGrid();
@@ -140,13 +141,13 @@ internal sealed class App : ApplicationContext
         grid = null;
     }
 
-    // One floating button on each monitor but the main one (the main taskbar has the real
-    // tray), unless the user turned it off there.
+    // A floating button on each monitor the settings give one: by default each but the
+    // main one, whose taskbar has the real tray.
     private void MakeButtons()
     {
         foreach (var monitor in Screen.AllScreens)
         {
-            if (!monitor.Primary && settings.ButtonOn(monitor))
+            if (settings.ButtonOn(monitor))
             {
                 MakeButton(monitor);
             }
@@ -174,7 +175,7 @@ internal sealed class App : ApplicationContext
     // The floating button on this monitor, or null if it has none.
     private FloatingButton? ButtonOf(Screen monitor) => buttons.Find(b => b.Monitor.DeviceName == monitor.DeviceName);
 
-    // "Floating button on this monitor" in the right-click menu. A grid open there was
+    // "Show the floating button" in the settings window. A grid open there was
     // placed for the button as it was, so it closes and opens again at its new place:
     // next to the button, or else where the grid was last dragged there or in the corner.
     // The button's own place stays saved, for when it is turned on again.
@@ -254,11 +255,8 @@ internal sealed class App : ApplicationContext
         Overflow = IconOrder.Sort(state.Overflow, settings.OverflowOrder),
     };
 
-    // The right-click menu of a button or of the grid on this monitor. On a secondary
-    // monitor it can switch that monitor's button.
-    private ContextMenuStrip NewMenu(Screen monitor) => monitor.Primary
-        ? AppMenu.Create(() => OpenSettings(monitor), ResetIconOrder, null, null)
-        : AppMenu.Create(() => OpenSettings(monitor), ResetIconOrder, () => settings.ButtonOn(monitor), on => SetButtonOn(monitor, on));
+    // The right-click menu of a button or of the grid on this monitor.
+    private ContextMenuStrip NewMenu(Screen monitor) => AppMenu.Create(() => OpenSettings(monitor), ResetIconOrder);
 
     // "Settings...": the settings window in the middle of this monitor. One at a time: open
     // here, it comes to the front, showing the settings as they are now; open on another
@@ -273,7 +271,7 @@ internal sealed class App : ApplicationContext
         }
         if (settingsWindow == null)
         {
-            settingsWindow = new SettingsForm(monitor, autostart);
+            settingsWindow = new SettingsForm(monitor, autostart, settings.ButtonOn, SetButtonOn);
             settingsWindow.FormClosed += (_, _) => settingsWindow = null;
             settingsWindow.Show();
         }

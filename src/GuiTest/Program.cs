@@ -13,8 +13,8 @@ namespace GuiTest;
 
 // The settings file as the app writes it (src/TrayAnywhere/Settings.cs): places measured
 // from each monitor's top-left corner, by the monitor's name (DISPLAY5). The icon order
-// and the monitors whose button is off, which the app also keeps there, are read on their
-// own (SavedOrderLength, SavedButtonsOff).
+// and which monitors have a button, which the app also keeps there, are read on their
+// own (SavedOrderLength, SavedButtonsOff, SavedMainButtonOn).
 internal sealed record SettingsFile(Dictionary<string, Offset> ButtonPlaces, Dictionary<string, Offset> GridPlaces);
 
 internal sealed record Offset(int X, int Y);
@@ -117,7 +117,7 @@ internal static class Program
                 IconOrderAfterRestart(settingsPath, monitors[0], draggedIcon);
                 AfterRestart(settingsPath, monitors, draggedPlace);
                 SettingsWindow(settingsPath, monitors);
-                ButtonOff(settingsPath, monitors);
+                ButtonsInSettings(settingsPath, monitors);
                 if (userCopy)
                 {
                     Check(TestedApp.IsRunning(TestedApp.UserLockName), "the user's tray-anywhere still runs", "it has stopped");
@@ -299,41 +299,56 @@ internal static class Program
         WaitUntil("the menu closes", () => app.MenuItem("Reset icon order") == null);
     }
 
-    // "Floating button on this monitor", unticked in a button's right-click menu, closes
-    // that button and keeps its monitor in settings.json; the others stay. Started again,
-    // the app shows no button there, and the hotkey opens the grid there in the corner, as
-    // on the main monitor. The hotkey opens it on the mouse's monitor, so the button
-    // turned off is the one there, if the mouse is on a secondary monitor. Ticking it
-    // again is in the grid's menu, which the test can't open (see AfterRestart). Both
-    // copies are ended by the test.
-    private static void ButtonOff(string settingsPath, List<Screen> monitors)
+    // "Show the floating button" in the settings window, for the monitor picked in its
+    // list, in three copies of the app (one window per copy, see SettingsWindow). M is the
+    // secondary monitor the mouse is on (else the first), as the hotkey opens the grid
+    // on the mouse's monitor. Copy 1, the window opened from M's button: it lists the
+    // monitors by name with M picked and ticked; the main monitor, picked, is unticked
+    // (off by default), and ticked it gets a button in its corner; M, picked again and
+    // unticked, loses its button, and only M; settings.json keeps both. Copy 2, started
+    // again: those buttons; the hotkey opens the grid in M's corner (with the mouse
+    // there), and the grid opens next to the main monitor's button. Copy 3, the window
+    // opened from the main monitor's button: the main monitor picked and ticked; unticked
+    // its button closes; M ticked brings M's button back at its old place, and
+    // settings.json has none off. All ended by the test.
+    private static void ButtonsInSettings(string settingsPath, List<Screen> monitors)
     {
+        var main = Screen.PrimaryScreen!;
         var mouseAtStart = Screen.FromPoint(Cursor.Position);
         var monitor = monitors.Find(m => m.DeviceName == mouseAtStart.DeviceName) ?? monitors[0];
+        var others = monitors.FindAll(m => m.DeviceName != monitor.DeviceName);
+        Point oldPlace;
         using (var app = new TestedApp(settingsPath))
         {
-            WaitUntil($"started again, the app shows its {monitors.Count} buttons", () => app.Buttons().Count == monitors.Count);
-            var button = app.Buttons().Find(b => IsOn(b, monitor));
-            Check(button != null, $"one of them is on {Key(monitor)}", "none is");
-            button.RightClick();
-            var item = WaitFor("its right-click menu opens, with Floating button on this monitor", () => app.MenuItem("Floating button on this monitor"));
-            Check(AppWindow.IsTicked(item), "it is ticked", "it isn't");
-            AppWindow.Invoke(item);
-            WaitUntil($"a click on it closes the button on {Key(monitor)}, and only that one",
-                () => AllButtonsBut(app, monitors, monitor), found: () => ButtonMonitors(app));
+            var window = OpenSettingsWindow(app, monitor);
+            CheckMonitorList(window, monitor);
+            var box = WaitFor("it has Show the floating button", () => window.Control("Show the floating button"));
+            Check(AppWindow.IsTicked(box), $"ticked for {Key(monitor)}, which has a button", "it isn't");
+            oldPlace = app.Buttons().Find(b => IsOn(b, monitor))!.Bounds.Location;
+
+            PickMonitor(window, main, monitor);
+            Check(!AppWindow.IsTicked(box), "unticked for the main monitor, off by default", "it is ticked");
+            AppWindow.Toggle(box);
+            var mainButton = WaitFor("ticked, it shows a button on the main monitor", () => app.Buttons().Find(b => IsOn(b, main)));
+            var corner = Corner(main, mainButton.Bounds.Size);
+            Check(mainButton.Bounds.Location == corner, "in its corner above the clock", $"it is at {mainButton.Bounds.Location}, the corner at {corner}");
+            Check(SavedMainButtonOn(settingsPath), "settings.json keeps the main monitor's button on", "it doesn't");
+
+            PickMonitor(window, monitor, monitor);
+            Check(AppWindow.IsTicked(box), $"ticked again for {Key(monitor)}", "it isn't");
+            AppWindow.Toggle(box);
+            WaitUntil($"unticked, it closes the button on {Key(monitor)}, and only that one",
+                () => ButtonsOn(app, [main, .. others]), found: () => ButtonMonitors(app));
             var off = SavedButtonsOff(settingsPath);
             Check(off.SequenceEqual([Key(monitor)]), $"settings.json lists {Key(monitor)} as off", $"it lists [{string.Join(", ", off)}]");
         }
         using (var app = new TestedApp(settingsPath))
         {
-            // With one secondary monitor there is no button left to wait for: the grid
-            // opened by the hotkey shows the app has started, buttons made.
-            WaitUntil("started again", () => app.HotkeyWindow() != IntPtr.Zero);
+            WaitUntil($"started again, the app shows buttons on the main monitor and on each secondary one but {Key(monitor)}",
+                () => ButtonsOn(app, [main, .. others]), found: () => ButtonMonitors(app));
             var mouse = Screen.FromPoint(Cursor.Position);
             app.PressHotkey();
             var grid = WaitForGrid(app, mouse, $"the hotkey opens the grid on the mouse's monitor, {Key(mouse)}");
-            WaitUntil($"the app shows no button on {Key(monitor)}, and one on each other secondary monitor",
-                () => AllButtonsBut(app, monitors, monitor), found: () => ButtonMonitors(app));
             if (mouse.DeviceName == monitor.DeviceName)
             {
                 CheckInCorner(grid, monitor);
@@ -342,15 +357,94 @@ internal static class Program
             {
                 Skipped($"the grid in the corner of {Key(monitor)}, which has no button: the mouse is on {Key(mouse)}");
             }
+            // On the main monitor the hotkey's grid is at its button already; elsewhere a
+            // click on that button moves the grid there (a second click would close it).
+            var mainButton = app.Buttons().Find(b => IsOn(b, main))!;
+            if (!mouse.Primary)
+            {
+                mainButton.Click();
+                grid = WaitForGrid(app, main, "a click on the main monitor's button moves the grid there");
+            }
+            CheckNextToButton(grid, mainButton, main, below: false);
+        }
+        using (var app = new TestedApp(settingsPath))
+        {
+            var window = OpenSettingsWindow(app, main);
+            CheckMonitorList(window, main);
+            var box = WaitFor("it has Show the floating button", () => window.Control("Show the floating button"));
+            Check(AppWindow.IsTicked(box), "ticked for the main monitor", "it isn't");
+            AppWindow.Toggle(box);
+            WaitUntil("unticked, it closes the main monitor's button", () => ButtonsOn(app, others), found: () => ButtonMonitors(app));
+
+            PickMonitor(window, monitor, main);
+            Check(!AppWindow.IsTicked(box), $"unticked for {Key(monitor)}", "it is ticked");
+            AppWindow.Toggle(box);
+            var button = WaitFor($"ticked, it shows the button on {Key(monitor)} again", () => app.Buttons().Find(b => IsOn(b, monitor)));
+            Check(button.Bounds.Location == oldPlace, "at its old place", $"it is at {button.Bounds.Location}, before at {oldPlace}");
+            WaitUntil("settings.json lists no monitor as off and the main monitor's button off",
+                () => SavedButtonsOff(settingsPath).Count == 0 && !SavedMainButtonOn(settingsPath));
         }
     }
 
-    // True when the app shows a button on each secondary monitor but this one.
-    private static bool AllButtonsBut(TestedApp app, List<Screen> monitors, Screen monitor)
+    // True when the app shows a button on each of these monitors and on no other.
+    private static bool ButtonsOn(TestedApp app, List<Screen> monitors)
     {
         var buttons = app.Buttons();
-        return buttons.Count == monitors.Count - 1 && !buttons.Exists(b => IsOn(b, monitor));
+        return buttons.Count == monitors.Count && monitors.All(m => buttons.Exists(b => IsOn(b, m)));
     }
+
+    // The settings window lists every monitor, top to bottom: "Main monitor", then the
+    // others from left to right ("External monitor"; "Left monitor" and "Right monitor";
+    // or "Monitor 1 from the left" and on), each with its size in pixels, and "(this one)"
+    // for its own monitor, which is picked.
+    private static void CheckMonitorList(AppWindow window, Screen here)
+    {
+        var expected = MonitorNames(here).Select(named => named.Name).ToList();
+        var radios = window.RadioButtons();
+        var names = radios.Select(radio => radio.Current.Name).ToList();
+        Check(names.SequenceEqual(expected), $"it lists the monitors: {string.Join("; ", expected)}", $"it lists {string.Join("; ", names)}");
+        var picked = radios.Where(AppWindow.IsSelected).Select(radio => radio.Current.Name).ToList();
+        var name = MonitorName(here, here);
+        Check(picked.SequenceEqual([name]), $"{name} is picked", $"picked: [{string.Join("; ", picked)}]");
+    }
+
+    // Picks this monitor in the settings window opened on `here`.
+    private static void PickMonitor(AppWindow window, Screen monitor, Screen here)
+    {
+        var name = MonitorName(monitor, here);
+        var radio = window.RadioButtons().Find(r => r.Current.Name == name);
+        Check(radio != null, $"the list has {name}", "it hasn't");
+        AppWindow.Select(radio);
+        WaitUntil($"{name} picked", () => AppWindow.IsSelected(radio));
+    }
+
+    // The monitors as the settings window on `here` names them, in its order.
+    private static List<(Screen Monitor, string Name)> MonitorNames(Screen here)
+    {
+        var all = Screen.AllScreens;
+        var others = all.Where(m => !m.Primary).OrderBy(m => m.Bounds.Left).ThenBy(m => m.Bounds.Top).ToList();
+        var places = all.Where(m => m.Primary).Select(m => (Monitor: m, Place: "Main monitor")).ToList();
+        for (var i = 0; i < others.Count; i++)
+        {
+            var place = others.Count switch
+            {
+                1 => "External monitor",
+                2 => i == 0 ? "Left monitor" : "Right monitor",
+                _ => $"Monitor {i + 1} from the left",
+            };
+            places.Add((others[i], place));
+        }
+        var named = new List<(Screen Monitor, string Name)>();
+        foreach (var (monitor, place) in places)
+        {
+            var thisOne = monitor.DeviceName == here.DeviceName ? " (this one)" : "";
+            named.Add((monitor, $"{place}, {monitor.Bounds.Width} × {monitor.Bounds.Height}{thisOne}"));
+        }
+        return named;
+    }
+
+    private static string MonitorName(Screen monitor, Screen here) =>
+        MonitorNames(here).Find(named => named.Monitor.DeviceName == monitor.DeviceName).Name;
 
     // The monitors the app shows a button on, for a failed check's message.
     private static string ButtonMonitors(TestedApp app) =>
@@ -369,6 +463,20 @@ internal static class Program
     // become expectedRun (null: none) and for no Startup apps value.
     private static AppWindow ClickStartWithWindows(TestedApp app, Screen monitor, string tickCheck, bool ticked, string clickCheck, string? expectedRun)
     {
+        var window = OpenSettingsWindow(app, monitor);
+        var box = WaitFor("it has Start with Windows", () => window.Control("Start with Windows"));
+        Check(AppWindow.IsTicked(box) == ticked, tickCheck, ticked ? "it isn't ticked" : "it is ticked");
+        AppWindow.Toggle(box);
+        WaitUntil(clickCheck,
+            () => TestedApp.RunValue(TestedApp.TestKey) == expectedRun && TestedApp.StartupAppsValue(TestedApp.TestKey) == null,
+            found: () => $"the Run value is {TestedApp.RunValue(TestedApp.TestKey) ?? "missing"}, the Startup apps value {TestedApp.StartupAppsValue(TestedApp.TestKey) ?? "missing"}");
+        return window;
+    }
+
+    // In a freshly started app (see SettingsWindow): "Settings..." in the right-click menu
+    // of the button on this monitor opens the settings window, in the middle of the monitor.
+    private static AppWindow OpenSettingsWindow(TestedApp app, Screen monitor)
+    {
         var button = WaitFor($"started again, the app shows its button on {Key(monitor)}", () => app.Buttons().Find(b => IsOn(b, monitor)));
         button.RightClick();
         var item = WaitFor("the button's right-click menu opens, with Settings...", () => app.MenuItem("Settings..."));
@@ -379,12 +487,6 @@ internal static class Program
         var window = WaitFor($"the settings window shows on {Key(monitor)}", () => app.SettingsWindow() is AppWindow open && IsOn(open, monitor) ? open : null);
         app.GiveFrontBack();
         CheckInMiddle(window, monitor);
-        var box = WaitFor("it has Start with Windows", () => window.Control("Start with Windows"));
-        Check(AppWindow.IsTicked(box) == ticked, tickCheck, ticked ? "it isn't ticked" : "it is ticked");
-        AppWindow.Toggle(box);
-        WaitUntil(clickCheck,
-            () => TestedApp.RunValue(TestedApp.TestKey) == expectedRun && TestedApp.StartupAppsValue(TestedApp.TestKey) == null,
-            found: () => $"the Run value is {TestedApp.RunValue(TestedApp.TestKey) ?? "missing"}, the Startup apps value {TestedApp.StartupAppsValue(TestedApp.TestKey) ?? "missing"}");
         return window;
     }
 
@@ -717,6 +819,13 @@ internal static class Program
         return file.RootElement.TryGetProperty("ButtonsOff", out var names)
             ? names.EnumerateArray().Select(name => name.GetString() ?? "null").ToList()
             : [];
+    }
+
+    // Whether settings.json has the main monitor's button on. Not in the file: off.
+    private static bool SavedMainButtonOn(string path)
+    {
+        using var file = JsonDocument.Parse(File.ReadAllText(path));
+        return file.RootElement.TryGetProperty("MainButtonOn", out var on) && on.GetBoolean();
     }
 
     // The number of keys in the icon order settings.json keeps for both sections. A list

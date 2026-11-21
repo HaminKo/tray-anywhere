@@ -7,7 +7,8 @@ using System.Windows.Forms;
 namespace TrayAnywhere;
 
 // The floating button: a small dark square with Windows' "show hidden icons" arrow, one
-// on each secondary monitor where it isn't turned off (owner's choice). A click opens or
+// on each monitor where the settings give one: by default each secondary monitor
+// (owner's choice). A click opens or
 // closes the grid next to it, on the side its arrow points to; dragging moves it within
 // its monitor; a right click gives the app's menu (AppMenu). It is always on top, and
 // takes the keyboard focus only when clicked or dragged, not when it appears.
@@ -41,7 +42,7 @@ internal sealed class FloatingButton : Form
     private Point pressMouse;
     private Point pressPlace;
 
-    // monitor: the secondary monitor the button is on. place: where the user last dragged
+    // monitor: the monitor the button is on. place: where the user last dragged
     // it there, or null for just above the right end of the taskbar. menu: its right-click
     // menu (AppMenu), disposed with the button.
     public FloatingButton(Screen monitor, Point? place, ContextMenuStrip menu)
