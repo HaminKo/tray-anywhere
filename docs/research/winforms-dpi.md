@@ -40,6 +40,9 @@ Not about scaling, but WinForms window behaviour of the same grid.
 - WinForms reads a form's `CreateParams` already in `Control`'s constructor, before the derived class's constructor body has run: `FloatingButton.CreateParams` reading the `look` field crashed with a NullReferenceException there (stack: `Control..ctor` → `get_CreateParams`). So always on top is copied into a `bool` field of its own, false at that point; no window exists yet, so it does no harm.
 - A flat `RadioButton` with `Appearance = Button` as a color square: `FlatAppearance.CheckedBackColor` set to its own color, so the picked one keeps it (WinForms' default for a picked flat button not tried), `BorderColor` changed at each `CheckedChanged` for the frame (light when picked, grey otherwise, so the dark square shows on the dark window). Seen in the screenshots at 150 % and 100 %. The greyed (disabled) look while the button is off wasn't in the screenshots: the owner's hand test.
 
+## 2026-11-21: the grid's settings gear (seen in the screenshots, To do 19)
+- A `Button` in the grid with a pixel-size font (Segoe Fluent Icons, 14 px at 100 %), set in `OnLoad` after the first move, as the settings window's text: the right size at 150 % (DISPLAY5) and 100 % (DISPLAY6). The font set in the constructor wasn't tried; the Labels' measurement above says it would shrink on DISPLAY6.
+
 ## Sources
 - High DPI support in Windows Forms: https://learn.microsoft.com/en-us/dotnet/desktop/winforms/high-dpi-support-in-windows-forms
 - Own measurements on this PC (logs written from the app, removed after).

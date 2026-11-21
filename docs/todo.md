@@ -1,5 +1,5 @@
 ## Where we are
-- Now: To do 19 (A settings gear in the grid)
+- Now: No to-dos open (pick one from Someday, or Before a public release)
 - Next: none
 - Updated: 2026-11-21
 
@@ -7,7 +7,6 @@
 Next number: 21. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
-- To do 19: A settings gear in the grid (small; user 2026-11-21): docs/todo/19-gear-in-grid.md
 
 ### Bugs me
 

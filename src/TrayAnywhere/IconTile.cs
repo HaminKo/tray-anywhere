@@ -21,16 +21,22 @@ internal sealed class IconTile : Button
     {
         Item = item;
         Image = picture;
-        BackColor = background;
-        FlatStyle = FlatStyle.Flat;
-        // A border shows the icon under the mouse. A lighter background would show the
-        // taskbar pictures' own dark background as a square.
-        FlatAppearance.BorderSize = borderWidth;
-        FlatAppearance.BorderColor = background;
-        FlatAppearance.MouseOverBackColor = background;
-        FlatAppearance.MouseDownBackColor = background;
-        MouseEnter += (_, _) => FlatAppearance.BorderColor = hoverBorder;
-        MouseLeave += (_, _) => FlatAppearance.BorderColor = background;
+        UseFlatLook(this, background, hoverBorder, borderWidth);
+    }
+
+    // The tiles' look, which the grid's settings gear shares: flat on the background, with
+    // a border while the mouse is over it. A lighter background would show the taskbar
+    // pictures' own dark background as a square.
+    public static void UseFlatLook(Button button, Color background, Color hoverBorder, int borderWidth)
+    {
+        button.BackColor = background;
+        button.FlatStyle = FlatStyle.Flat;
+        button.FlatAppearance.BorderSize = borderWidth;
+        button.FlatAppearance.BorderColor = background;
+        button.FlatAppearance.MouseOverBackColor = background;
+        button.FlatAppearance.MouseDownBackColor = background;
+        button.MouseEnter += (_, _) => button.FlatAppearance.BorderColor = hoverBorder;
+        button.MouseLeave += (_, _) => button.FlatAppearance.BorderColor = background;
     }
 
     // The tray icon this tile stands for, from the latest read (the grid replaces it at

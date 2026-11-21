@@ -162,7 +162,34 @@ internal static class Program
         var (grid, draggedIcon) = TestIconInGrid(app, buttons[0], monitors[0]);
         var draggedPlace = DragGrid(grid, buttons[0], monitors[0], settingsPath);
         CloseGrid(app, grid, buttons[0], monitors[0]);
+        GearOpensSettings(app, buttons[0], monitors[0]);
         return (draggedPlace, draggedIcon);
+    }
+
+    // The settings gear at the grid's top right, above the icons and named "Settings": a
+    // click (UI Automation's Invoke) closes the grid and opens the settings window in the
+    // middle of that monitor, with that monitor picked. Last in its copy of the app: once
+    // the settings window has shown, the test's message no longer opens the app's menu
+    // (see SettingsWindow).
+    private static void GearOpensSettings(TestedApp app, AppWindow button, Screen monitor)
+    {
+        button.Click();
+        var grid = WaitForGrid(app, monitor, "the button opens the grid again");
+        var element = WaitFor("it has a settings gear", () => grid.ControlWithId("Gear"));
+        var gear = new AppWindow(element);
+        Check(element.Current.Name == "Settings", "named Settings", $"named \"{element.Current.Name}\"");
+        var tiles = TestedApp.Tiles(grid);
+        var bounds = gear.Bounds;
+        var size = new Size(Px(monitor, 24), Px(monitor, 24));
+        Check(bounds.Size == size && tiles.All(tile => bounds.Bottom <= tile.Bounds.Top && bounds.Right >= tile.Bounds.Right),
+            $"{size.Width} px square, above the icons, at their right", $"it is at {bounds}");
+        AppWindow.Invoke(element);
+        WaitUntil("a click on it closes the grid", () => app.Grid() == null);
+        var window = WaitFor($"and opens the settings window on {Key(monitor)}", () => app.SettingsWindow() is AppWindow open && IsOn(open, monitor) ? open : null);
+        app.GiveFrontBack();
+        CheckInMiddle(window, monitor);
+        var name = MonitorName(monitor, monitor);
+        WaitUntil($"with {name} picked", () => PickedName(window) == name, found: () => PickedName(window) ?? "nothing");
     }
 
     // Started again, the app shows the test's icon where it was dragged, not where Windows

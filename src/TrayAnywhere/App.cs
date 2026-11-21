@@ -111,6 +111,15 @@ internal sealed class App : ApplicationContext
             grid = new GridForm(Sorted(state), monitor, button == null ? settings.GridPlace(monitor) : null, button, NewMenu(monitor));
             grid.FormClosed += (_, _) => ForgetGrid();
             grid.IconClicked += ClickIcon;
+            // The gear: the settings window, and the grid closes, as with its X: it is always
+            // on top and the settings window isn't, so it could cover the window. Settings
+            // first: closing the grid while it is the active window would hand the front to
+            // another program's window before the settings window could take it (code review).
+            grid.SettingsClicked += () =>
+            {
+                OpenSettings(monitor);
+                grid?.Close();
+            };
             // Saved with the keys of icons that aren't there now, at their places.
             grid.Reordered += (section, items) => settings.SetOrder(section, IconOrder.Merge(items, settings.OrderOf(section)));
             grid.Dragged += place =>

@@ -11,10 +11,10 @@ namespace TrayAnywhere;
 
 // The grid: the app icons in "Pinned" (shown on the taskbar) and "Overflow" (behind the
 // arrow), with each icon's tooltip text on hover. It stays on top until its X, Escape,
-// the hotkey or its floating button closes it, and can be dragged by its title bar within
-// its monitor (owner's choice). Its tiles can be dragged into another order within their
-// section; App saves that order and sorts each read by it. A new grid is made each time it
-// opens, laid out at the scale of the monitor it opens on.
+// the hotkey, its floating button or its settings gear closes it, and can be dragged by
+// its title bar within its monitor (owner's choice). Its tiles can be dragged into another
+// order within their section; App saves that order and sorts each read by it. A new grid
+// is made each time it opens, laid out at the scale of the monitor it opens on.
 internal sealed class GridForm : Form
 {
     // Sizes at 100 % scaling, in pixels. The icon is the tray's own size; the tile is the
@@ -32,6 +32,10 @@ internal sealed class GridForm : Form
     private const int ScreenGap = 12;
     // Between the grid and the floating button it opens next to.
     private const int ButtonGap = 8;
+    // The settings gear: a square as high as a section title, its symbol in this size.
+    private const int GearSymbolHeight = 14;
+    // The gear symbol in Segoe Fluent Icons, which ships with Windows 11.
+    private const string GearSymbol = "";
 
     // Dark, like the taskbar here: its icon pictures carry its dark background (owner's choice).
     private static readonly Color Background = Color.FromArgb(32, 32, 32);
@@ -43,6 +47,10 @@ internal sealed class GridForm : Form
     private readonly float scale;
     private readonly Font titleFont;
     private readonly Font textFont;
+    private readonly Font gearFont;
+    // At the right end of the first line, just under the title bar's X. Windows draws that
+    // title bar, so the gear can't go beside the X (To do 19).
+    private readonly Button gear;
     // ShowAlways: also while another window has the focus; the grid stays open then.
     private readonly ToolTip toolTip = new() { ShowAlways = true };
     // The grid's monitor without its taskbar, in physical pixels; the grid stays inside it.
@@ -84,6 +92,7 @@ internal sealed class GridForm : Form
         // Sizes in pixels, so the text is the same size on every monitor at its scale.
         titleFont = new Font("Segoe UI Semibold", Px(TextHeight), GraphicsUnit.Pixel);
         textFont = new Font("Segoe UI", Px(TextHeight), GraphicsUnit.Pixel);
+        gearFont = new Font("Segoe Fluent Icons", Px(GearSymbolHeight), GraphicsUnit.Pixel);
 
         Text = "tray-anywhere";
         // Its AutomationId in UI Automation, by which the GUI test finds it.
@@ -100,6 +109,23 @@ internal sealed class GridForm : Form
         // A right click on the grid's background: the app's menu (AppMenu). Right
         // clicks on tiles don't open it (see IconTile).
         ContextMenuStrip = menu;
+
+        // Its font is set in OnLoad, as WinForms changes a control's font when the
+        // window's scaling changes (see OnLoad).
+        gear = new Button
+        {
+            Text = GearSymbol,
+            ForeColor = TitleColor,
+            // Its AutomationId and its name in UI Automation (screen readers, the GUI test).
+            Name = "Gear",
+            AccessibleName = "Settings",
+            // Not reached with Tab: the grid opens with the focus on its first icon, so
+            // Enter right after the hotkey can't open the settings by mistake.
+            TabStop = false,
+        };
+        IconTile.UseFlatLook(gear, Background, HoverBorder, Math.Max(1, Px(1)));
+        gear.Click += (_, _) => SettingsClicked?.Invoke();
+        Controls.Add(gear);
 
         LayOut(state);
         ClientSize = contentSize;
@@ -129,17 +155,23 @@ internal sealed class GridForm : Form
     // The user dragged a tile to another place: the section's icons in their new order.
     public event Action<TrayItemKind, List<TrayItem>>? Reordered;
 
+    // A click on the settings gear. App closes the grid and opens the settings window.
+    public event Action? SettingsClicked;
+
     // Where the grid was when the user pressed on its title bar.
     private Point dragStart;
 
     // Runs once the window exists, just before it shows. WinForms first treats a new
     // window as being at the main monitor's scaling (150 %); on the 100 % monitor, the
     // first move then changes it to 100 % and Windows resizes the title bar (logged).
-    // So: move, then set the size, then place it again with that size.
+    // So: move, then set the size, then place it again with that size. That change also
+    // shrinks controls' fonts, though they are in pixels (measured for Labels,
+    // docs/research/winforms-dpi.md): the gear gets its font after the move.
     protected override void OnLoad(EventArgs e)
     {
         base.OnLoad(e);
         Location = Place();
+        gear.Font = gearFont;
         ClientSize = contentSize;
         Location = Place();
     }
@@ -319,9 +351,19 @@ internal sealed class GridForm : Form
 
         columns = Math.Clamp(Math.Max(state.Pinned.Count, state.Overflow.Count), MinColumns, MaxColumns);
         var top = Px(EdgeSpace);
+        // The gear on the first line, right-aligned with the tiles. Its tooltip again here:
+        // RemoveAll above took it too.
+        var gearSize = Px(TitleHeight);
+        gear.Bounds = new Rectangle(Px(EdgeSpace) + columns * Px(TileSize) - gearSize, top, gearSize, gearSize);
+        toolTip.SetToolTip(gear, "Settings");
         top = AddSection("Pinned", TrayItemKind.Pinned, state.Pinned, top);
         top = AddSection("Overflow", TrayItemKind.Overflow, state.Overflow, top);
         var noIcons = state.Pinned.Count == 0 && state.Overflow.Count == 0;
+        if (noIcons)
+        {
+            // No section title: the gear has the first line to itself, above the problem line.
+            top += gearSize;
+        }
         var problem = state.Problem ?? (noIcons ? "No tray icons found." : null);
         if (problem != null)
         {
@@ -552,6 +594,7 @@ internal sealed class GridForm : Form
             toolTip.Dispose();
             titleFont.Dispose();
             textFont.Dispose();
+            gearFont.Dispose();
         }
     }
 
