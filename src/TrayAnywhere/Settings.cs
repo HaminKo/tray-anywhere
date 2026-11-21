@@ -14,7 +14,8 @@ namespace TrayAnywhere;
 internal sealed record Offset(int X, int Y);
 
 // The settings file (%APPDATA%\tray-anywhere\settings.json): where the user dragged each
-// floating button and the grid, per monitor. Each drag saves it at once.
+// floating button and the grid, per monitor, the grid's icon order, and which monitors'
+// buttons are off. Each change saves it at once.
 internal sealed class Settings
 {
     // By the monitor's name without "\\.\" (e.g. DISPLAY5). Windows can give a monitor a
@@ -24,6 +25,9 @@ internal sealed class Settings
     // The grid's icon order in each section, as IconOrder's keys. Empty: the tray's order.
     public List<string> PinnedOrder { get; set; } = [];
     public List<string> OverflowOrder { get; set; } = [];
+    // The monitors whose floating button the user turned off, by name as above. Empty:
+    // a button on every secondary monitor.
+    public List<string> ButtonsOff { get; set; } = [];
 
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tray-anywhere", "settings.json");
@@ -86,6 +90,20 @@ internal sealed class Settings
         Save();
     }
 
+    // "Floating button on this monitor" in the right-click menu.
+    public bool ButtonOn(Screen monitor) => !ButtonsOff.Contains(Key(monitor));
+
+    public void SetButtonOn(Screen monitor, bool on)
+    {
+        // Removed first, so the monitor is never listed twice.
+        ButtonsOff.Remove(Key(monitor));
+        if (!on)
+        {
+            ButtonsOff.Add(Key(monitor));
+        }
+        Save();
+    }
+
     // Back to the tray's order in both sections.
     public void ResetOrder()
     {
@@ -127,8 +145,7 @@ internal sealed class Settings
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException)
         {
-            // Only a place or an order is lost; the app goes on and tries again at the
-            // next drag.
+            // Only this change is lost; the app goes on and tries again at the next one.
         }
     }
 }

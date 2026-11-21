@@ -97,9 +97,22 @@ internal sealed class TestedApp : IDisposable
     }
 
     // Sends the app's hidden hotkey window the message Windows sends it for Alt+`. The
-    // real keys would reach the user's copy, or the window in front. The user's copy has
-    // a hotkey window of the same title: each is looked at until the one of this copy.
+    // real keys would reach the user's copy, or the window in front.
     public void PressHotkey()
+    {
+        var window = HotkeyWindow();
+        if (window == IntPtr.Zero)
+        {
+            throw new CheckFailed("the app's hotkey window isn't there");
+        }
+        // 1: the hotkey's number (Hotkey.cs).
+        PostMessage(window, WmHotkey, new IntPtr(1), IntPtr.Zero);
+    }
+
+    // The app's hidden hotkey window, or IntPtr.Zero until the starting app has made it.
+    // The user's copy has a hotkey window of the same title: each is looked at until the
+    // one of this copy.
+    public IntPtr HotkeyWindow()
     {
         var window = IntPtr.Zero;
         while (true)
@@ -107,16 +120,14 @@ internal sealed class TestedApp : IDisposable
             window = FindWindowEx(MessageOnlyParent, window, null, "tray-anywhere hotkey");
             if (window == IntPtr.Zero)
             {
-                throw new CheckFailed("the app's hotkey window isn't there");
+                return IntPtr.Zero;
             }
             GetWindowThreadProcessId(window, out var processId);
             if (processId == process.Id)
             {
-                break;
+                return window;
             }
         }
-        // 1: the hotkey's number (Hotkey.cs).
-        PostMessage(window, WmHotkey, new IntPtr(1), IntPtr.Zero);
     }
 
     // Gives the front back to the user's window if one of the app's took it. The grid

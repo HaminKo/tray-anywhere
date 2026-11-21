@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Security;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace TrayAnywhere;
@@ -10,10 +11,22 @@ namespace TrayAnywhere;
 // disposes its menu when it closes.
 internal static class AppMenu
 {
-    // resetIconOrder: what "Reset icon order" does.
-    public static ContextMenuStrip Create(Autostart autostart, Action resetIconOrder)
+    // resetIconOrder: what "Reset icon order" does. buttonOn and setButtonOn: whether the
+    // floating button on the menu's monitor is on, and what switching it does; both null
+    // on the main monitor, which never has a button.
+    public static ContextMenuStrip Create(Autostart autostart, Action resetIconOrder, Func<bool>? buttonOn, Action<bool>? setButtonOn)
     {
         var menu = new ContextMenuStrip();
+        if (buttonOn != null && setButtonOn != null)
+        {
+            var button = new ToolStripMenuItem("Floating button on this monitor") { CheckOnClick = true };
+            // Done once the click is over and the menu has closed: switching closes the
+            // button or the grid this menu belongs to, which would dispose the menu during
+            // its own click.
+            button.Click += (_, _) => SynchronizationContext.Current?.Post(_ => setButtonOn(button.Checked), null);
+            menu.Opening += (_, _) => button.Checked = buttonOn();
+            menu.Items.Add(button);
+        }
         // CheckOnClick: a click turns the tick over before Click runs, and UI Automation
         // shows the tick as an on/off state (the GUI test reads it).
         var startWithWindows = new ToolStripMenuItem("Start with Windows") { CheckOnClick = true };

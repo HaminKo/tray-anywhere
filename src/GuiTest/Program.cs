@@ -13,7 +13,8 @@ namespace GuiTest;
 
 // The settings file as the app writes it (src/TrayAnywhere/Settings.cs): places measured
 // from each monitor's top-left corner, by the monitor's name (DISPLAY5). The icon order
-// the app also keeps there is read on its own (SavedOrderLength).
+// and the monitors whose button is off, which the app also keeps there, are read on their
+// own (SavedOrderLength, SavedButtonsOff).
 internal sealed record SettingsFile(Dictionary<string, Offset> ButtonPlaces, Dictionary<string, Offset> GridPlaces);
 
 internal sealed record Offset(int X, int Y);
@@ -115,6 +116,7 @@ internal static class Program
                 var (draggedPlace, draggedIcon) = FirstRun(settingsPath, monitors, savedPlace);
                 IconOrderAfterRestart(settingsPath, monitors[0], draggedIcon);
                 AfterRestart(settingsPath, monitors, draggedPlace);
+                ButtonOff(settingsPath, monitors);
                 if (userCopy)
                 {
                     Check(TestedApp.IsRunning(TestedApp.UserLockName), "the user's tray-anywhere still runs", "it has stopped");
@@ -278,6 +280,63 @@ internal static class Program
         WaitUntil("the menu closes", () => app.MenuItem("Reset icon order") == null);
     }
 
+    // "Floating button on this monitor", unticked in a button's right-click menu, closes
+    // that button and keeps its monitor in settings.json; the others stay. Started again,
+    // the app shows no button there, and the hotkey opens the grid there in the corner, as
+    // on the main monitor. The hotkey opens it on the mouse's monitor, so the button
+    // turned off is the one there, if the mouse is on a secondary monitor. Ticking it
+    // again is in the grid's menu, which the test can't open (see AfterRestart). Both
+    // copies are ended by the test.
+    private static void ButtonOff(string settingsPath, List<Screen> monitors)
+    {
+        var mouseAtStart = Screen.FromPoint(Cursor.Position);
+        var monitor = monitors.Find(m => m.DeviceName == mouseAtStart.DeviceName) ?? monitors[0];
+        using (var app = new TestedApp(settingsPath))
+        {
+            WaitUntil($"started again, the app shows its {monitors.Count} buttons", () => app.Buttons().Count == monitors.Count);
+            var button = app.Buttons().Find(b => IsOn(b, monitor));
+            Check(button != null, $"one of them is on {Key(monitor)}", "none is");
+            button.RightClick();
+            var item = WaitFor("its right-click menu opens, with Floating button on this monitor", () => app.MenuItem("Floating button on this monitor"));
+            Check(AppWindow.IsTicked(item), "it is ticked", "it isn't");
+            AppWindow.Invoke(item);
+            WaitUntil($"a click on it closes the button on {Key(monitor)}, and only that one",
+                () => AllButtonsBut(app, monitors, monitor), found: () => ButtonMonitors(app));
+            var off = SavedButtonsOff(settingsPath);
+            Check(off.SequenceEqual([Key(monitor)]), $"settings.json lists {Key(monitor)} as off", $"it lists [{string.Join(", ", off)}]");
+        }
+        using (var app = new TestedApp(settingsPath))
+        {
+            // With one secondary monitor there is no button left to wait for: the grid
+            // opened by the hotkey shows the app has started, buttons made.
+            WaitUntil("started again", () => app.HotkeyWindow() != IntPtr.Zero);
+            var mouse = Screen.FromPoint(Cursor.Position);
+            app.PressHotkey();
+            var grid = WaitForGrid(app, mouse, $"the hotkey opens the grid on the mouse's monitor, {Key(mouse)}");
+            WaitUntil($"the app shows no button on {Key(monitor)}, and one on each other secondary monitor",
+                () => AllButtonsBut(app, monitors, monitor), found: () => ButtonMonitors(app));
+            if (mouse.DeviceName == monitor.DeviceName)
+            {
+                CheckInCorner(grid, monitor);
+            }
+            else
+            {
+                Skipped($"the grid in the corner of {Key(monitor)}, which has no button: the mouse is on {Key(mouse)}");
+            }
+        }
+    }
+
+    // True when the app shows a button on each secondary monitor but this one.
+    private static bool AllButtonsBut(TestedApp app, List<Screen> monitors, Screen monitor)
+    {
+        var buttons = app.Buttons();
+        return buttons.Count == monitors.Count - 1 && !buttons.Exists(b => IsOn(b, monitor));
+    }
+
+    // The monitors the app shows a button on, for a failed check's message.
+    private static string ButtonMonitors(TestedApp app) =>
+        $"buttons on [{string.Join(", ", app.Buttons().Select(b => Key(Screen.FromRectangle(b.Bounds))))}]";
+
     // Writes the app's value in the test's Startup apps key.
     private static void SetStartupAppsValue(byte[] value)
     {
@@ -362,9 +421,7 @@ internal static class Program
         if (index < 0)
         {
             // The main monitor: no button there.
-            var bounds = grid.Bounds;
-            var corner = Corner(mouse, bounds.Size);
-            Check(bounds.Location == corner, "there in the bottom-right corner", $"it is at {bounds.Location}, the corner at {corner}");
+            CheckInCorner(grid, mouse);
         }
         else
         {
@@ -372,6 +429,15 @@ internal static class Program
         }
         app.PressHotkey();
         WaitUntil("the hotkey again closes it", () => app.Grid() == null);
+    }
+
+    // The grid in the bottom-right corner of its monitor's free area: where it opens on a
+    // monitor without a button, until it is dragged there.
+    private static void CheckInCorner(AppWindow grid, Screen monitor)
+    {
+        var bounds = grid.Bounds;
+        var corner = Corner(monitor, bounds.Size);
+        Check(bounds.Location == corner, "there in the bottom-right corner", $"it is at {bounds.Location}, the corner at {corner}");
     }
 
     // Each tile has a name (its tooltip text), and the Pinned ones come before the
@@ -608,6 +674,15 @@ internal static class Program
 
     private static SettingsFile ReadSettings(string path) =>
         JsonSerializer.Deserialize<SettingsFile>(File.ReadAllText(path)) ?? throw new CheckFailed("settings.json holds null");
+
+    // The monitors settings.json lists with their button off. None listed: none off.
+    private static List<string> SavedButtonsOff(string path)
+    {
+        using var file = JsonDocument.Parse(File.ReadAllText(path));
+        return file.RootElement.TryGetProperty("ButtonsOff", out var names)
+            ? names.EnumerateArray().Select(name => name.GetString() ?? "null").ToList()
+            : [];
+    }
 
     // The number of keys in the icon order settings.json keeps for both sections. A list
     // the file doesn't have counts as empty, as the app reads it.

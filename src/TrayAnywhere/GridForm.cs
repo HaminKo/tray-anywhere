@@ -98,7 +98,7 @@ internal sealed class GridForm : Form
         AutoScaleMode = AutoScaleMode.None;
         BackColor = Background;
 
-        // A right click on the grid's background: Start with Windows and Exit. Right
+        // A right click on the grid's background: the app's menu (AppMenu). Right
         // clicks on tiles don't open it (see IconTile).
         ContextMenuStrip = menu;
 

@@ -2,6 +2,16 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-19: No settings window: one menu item turns the floating button off per monitor
+- What: "Floating button on this monitor", a ticked item in the right-click menu of a secondary monitor's button and of the grid there (not on the main monitor, which has no button). Unticked, the button closes and its monitor is kept in settings.json (`ButtonsOff`, monitor names); the hotkey then opens the grid there as on the main monitor (bottom right, or where it was last dragged there). Ticked again from the grid's menu, the button comes back at its old place. A grid open on that monitor closes and opens again at its new place. No reset item: deleting settings.json resets everything (README).
+- Reason: a settings window pays off only with about four settings or one that must be typed; with one on/off setting a menu item is less code, sits beside the other settings, and the GUI test can click it. The button off addresses a known limitation (it stays on top, also over full-screen video).
+- Decided by: the owner (Claude's suggestions), To do 16.
+- Rejected:
+  - A settings window now: no settings to put in it; back to "Later" until there are about four.
+  - The hotkey as a setting: the 2026-11-14 decision stands (fixed until it clashes); a key-capture box is ~100 lines and only testable by hand.
+  - Refresh times and icon size as settings: nothing has come up; refresh times must not become a test shortcut ("Tests run at the app's real speed").
+  - One switch for all buttons: with two external monitors, one may want its button and the other not.
+
 ## 2026-11-19: Drag to reorder: the grid's own order per section, kept by the program's file name
 - What: a tile dragged in the grid takes the place under its centre; the other tiles of its section make room as it passes, and the release doesn't click the icon. Only within its section: a tile dropped over the other section goes to the nearest place in its own. The order is saved in settings.json as a list of keys per section (`PinnedOrder`, `OverflowOrder`), and each read is sorted by it: known icons in the saved order, new ones after them in tray order. Saved keys of icons not there during a drag keep their old places in the list, so a closed program gets its place back. "Reset icon order" in the right-click menu (buttons and grid) empties both lists.
 - Key: the program's file name (`steam.exe`), else the icon's name. Measured on the owner's tray: 15 of 16 app icons have a program; 3 have no name, so a name alone can't be the key. The one without a program ("Session Inbox") changes its tooltip, so it counts as new (end of its section) after a change until dragged again: accepted. One program's two icons share a key and keep Windows' order between them: accepted (none today).

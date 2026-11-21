@@ -1,7 +1,7 @@
 ## Where we are
-- Now: No to-dos open (pick one from Bugs me, or Before a public release)
-- Next: To do 16
-- Updated: 2026-11-19
+- Now: Before a public release (no to-dos open)
+- Next: none
+- Updated: 2026-11-20
 
 ## To do
 Next number: 17. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
@@ -9,11 +9,11 @@ Next number: 17. Numbers are permanent: never renumber or reuse one; to move a t
 ### Now
 
 ### Bugs me
-- To do 16: A settings window (medium; user 2026-11-17): docs/todo/16-settings-window.md
 
 ### Someday
 
 ## Later, only if the user asks
+- A settings window, once there are about four settings (To do 16 found one; see docs/decisions.md 2026-11-19).
 
 ## Writing a to-do
 - Number: the "Next number" (then raise that line by one). The line goes under Someday, unless the user says it bugs them or wants it soon: then under Bugs me where the user says (at most 5 there, so ask which one drops back to Someday), and "Next:" and "Updated:" in "Where we are" change with it.
