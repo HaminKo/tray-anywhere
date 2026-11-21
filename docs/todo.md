@@ -4,7 +4,7 @@
 - Updated: 2026-11-21
 
 ## To do
-Next number: 19. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
+Next number: 20. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
 - To do 17: A settings window (medium; user 2026-11-20): docs/todo/17-settings-window.md
@@ -13,6 +13,7 @@ Next number: 19. Numbers are permanent: never renumber or reuse one; to move a t
 
 ### Someday
 - To do 18: Hide the floating button while a full-screen program is in front (small; Claude 2026-11-20): docs/todo/18-hide-button-full-screen.md
+- To do 19: A settings gear in the grid (small; user 2026-11-21): docs/todo/19-gear-in-grid.md
 
 ## Later, only if the user asks
 
