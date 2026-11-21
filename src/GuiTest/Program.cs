@@ -393,29 +393,60 @@ internal static class Program
         return buttons.Count == monitors.Count && monitors.All(m => buttons.Exists(b => IsOn(b, m)));
     }
 
-    // The settings window lists every monitor, top to bottom: "Main monitor", then the
-    // others from left to right ("External monitor"; "Left monitor" and "Right monitor";
-    // or "Monitor 1 from the left" and on), each with its size in pixels, and "(this one)"
-    // for its own monitor, which is picked.
+    // The settings window draws every monitor as a box, a radio button named "Main
+    // monitor", or for the others by their place from the left ("External monitor"; "Left
+    // monitor" and "Right monitor"; or "Monitor 1 from the left" and on), each with its size
+    // in pixels, and "(this one)" for its own monitor, which is picked; the picked name also
+    // shows under the boxes.
     private static void CheckMonitorList(AppWindow window, Screen here)
     {
-        var expected = MonitorNames(here).Select(named => named.Name).ToList();
-        var radios = window.RadioButtons();
-        var names = radios.Select(radio => radio.Current.Name).ToList();
-        Check(names.SequenceEqual(expected), $"it lists the monitors: {string.Join("; ", expected)}", $"it lists {string.Join("; ", names)}");
-        var picked = radios.Where(AppWindow.IsSelected).Select(radio => radio.Current.Name).ToList();
+        var named = MonitorNames(here);
+        var expected = named.Select(n => n.Name).Order().ToList();
+        var boxes = window.RadioButtons();
+        var names = boxes.Select(box => box.Current.Name).Order().ToList();
+        Check(names.SequenceEqual(expected), $"it has a box for each monitor: {string.Join("; ", expected)}", $"it has {string.Join("; ", names)}");
+        CheckOutline(named.ConvertAll(n => (n.Monitor, new AppWindow(boxes.Find(box => box.Current.Name == n.Name)!).Bounds)), here);
+        var picked = boxes.Where(AppWindow.IsSelected).Select(box => box.Current.Name).ToList();
         var name = MonitorName(here, here);
         Check(picked.SequenceEqual([name]), $"{name} is picked", $"picked: [{string.Join("; ", picked)}]");
+        Check(PickedName(window) == name, "its name shows under the boxes", $"it shows {PickedName(window) ?? "nothing"}");
     }
+
+    // The boxes are drawn like the monitors in Windows' Display settings: the desktop
+    // shrunk to one scale, each box at its monitor's place and size, within a few pixels
+    // (the gap between boxes, rounding). The scale is read from the drawing's width.
+    private static void CheckOutline(List<(Screen Monitor, Rectangle Box)> boxes, Screen here)
+    {
+        var desktop = boxes.Select(b => b.Monitor.Bounds).Aggregate(Rectangle.Union);
+        var drawn = boxes.Select(b => b.Box).Aggregate(Rectangle.Union);
+        var scale = (double)drawn.Width / desktop.Width;
+        var tolerance = Px(here, 6);
+        var off = new List<string>();
+        foreach (var (monitor, box) in boxes)
+        {
+            var m = monitor.Bounds;
+            var expected = new[] { (m.Left - desktop.Left) * scale, (m.Top - desktop.Top) * scale, m.Width * scale, m.Height * scale };
+            var found = new[] { box.Left - drawn.Left, box.Top - drawn.Top, box.Width, box.Height };
+            if (expected.Zip(found).Any(pair => Math.Abs(pair.First - pair.Second) > tolerance))
+            {
+                off.Add($"{Key(monitor)} at {m.Location}, {m.Width} × {m.Height}: its box at {box.Left - drawn.Left},{box.Top - drawn.Top}, {box.Width} × {box.Height}");
+            }
+        }
+        Check(off.Count == 0, $"each box is at its monitor's place and size at one scale ({scale:0.0000}), within {tolerance} px", string.Join("; ", off));
+    }
+
+    // The monitor's name under the boxes in the settings window, or null.
+    private static string? PickedName(AppWindow window) => window.ControlWithId("PickedMonitor")?.Current.Name;
 
     // Picks this monitor in the settings window opened on `here`.
     private static void PickMonitor(AppWindow window, Screen monitor, Screen here)
     {
         var name = MonitorName(monitor, here);
-        var radio = window.RadioButtons().Find(r => r.Current.Name == name);
-        Check(radio != null, $"the list has {name}", "it hasn't");
-        AppWindow.Select(radio);
-        WaitUntil($"{name} picked", () => AppWindow.IsSelected(radio));
+        var box = window.RadioButtons().Find(r => r.Current.Name == name);
+        Check(box != null, $"the window has a box for {name}", "it hasn't");
+        AppWindow.Select(box);
+        WaitUntil($"{name} picked, its name under the boxes", () => AppWindow.IsSelected(box) && PickedName(window) == name,
+            found: () => $"picked: {AppWindow.IsSelected(box)}, the name shows {PickedName(window) ?? "nothing"}");
     }
 
     // The monitors as the settings window on `here` names them, in its order.

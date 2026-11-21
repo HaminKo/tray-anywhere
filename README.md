@@ -27,7 +27,7 @@ Press Alt+` (Alt and the key left of 1): the popup opens on the monitor the mous
 
 Each monitor other than the main one also gets a small button with an arrow, just above the clock. Click it to open or close the popup where the arrow points. The button and the popup stay together: drag either one and the other comes along. To quit, right-click the button or the popup's background and choose Exit.
 
-Settings... in the same right-click menu opens a small window. A change there applies at once; close it with its X or Escape. To turn a monitor's button on or off, pick that monitor in the window's list and tick or untick "Show the floating button". The main monitor has no button at first, as its taskbar has the real tray. On a monitor without a button, Alt+` opens the popup at the bottom right.
+Settings... in the same right-click menu opens a small window. A change there applies at once; close it with its X or Escape. To turn a monitor's button on or off, click that monitor in the window's picture of your monitors (laid out as in Windows' Display settings) and tick or untick "Show the floating button". The main monitor has no button at first, as its taskbar has the real tray. On a monitor without a button, Alt+` opens the popup at the bottom right.
 
 Where you dragged the buttons, the popup and its icons, and which monitors have a button, are kept in `$env:APPDATA\tray-anywhere\settings.json`. Delete that file (with tray-anywhere closed) to go back to the defaults.
 

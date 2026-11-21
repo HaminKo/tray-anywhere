@@ -1,5 +1,5 @@
 ## Where we are
-- Now: To do 17, step C (the monitors drawn as an outline, at the top)
+- Now: To do 17, step D (color, size and always on top per button)
 - Next: none
 - Updated: 2026-11-21
 

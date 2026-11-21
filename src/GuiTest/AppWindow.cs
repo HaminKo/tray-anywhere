@@ -135,8 +135,13 @@ internal sealed class AppWindow
     public AutomationElement? Control(string name) =>
         Element.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.NameProperty, name));
 
-    // The window's radio buttons from top to bottom, as they show.
+    // A control in this window with this AutomationId (its WinForms Name), or null.
+    public AutomationElement? ControlWithId(string id) =>
+        Element.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, id));
+
+    // The window's radio buttons (the settings window's monitor boxes), in UI Automation's
+    // order: the checks find each by its name.
     public List<AutomationElement> RadioButtons() =>
         Element.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton))
-            .Cast<AutomationElement>().OrderBy(radio => radio.Current.BoundingRectangle.Top).ToList();
+            .Cast<AutomationElement>().ToList();
 }
