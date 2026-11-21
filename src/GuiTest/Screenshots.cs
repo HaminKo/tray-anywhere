@@ -24,8 +24,15 @@ internal static class Screenshots
     public static void Take(string folder, string settingsPath, List<Screen> monitors)
     {
         // No saved places: each button in its corner above the clock, the grid above it,
-        // as on the first start. So every run takes the same pictures.
-        Program.WriteSettings(settingsPath, new(new(), new()));
+        // as on the first start. So every run takes the same pictures. With two or more
+        // monitors, the last one's button in Windows' accent color and large, so the
+        // pictures show a button in its default look and one in another.
+        var looks = new Dictionary<string, Look>();
+        if (monitors.Count > 1)
+        {
+            looks[Program.Key(monitors[^1])] = new Look("Accent", "Large", OnTop: true);
+        }
+        Program.WriteSettings(settingsPath, new(new(), new(), looks));
         foreach (var monitor in monitors)
         {
             TakeSettings(folder, settingsPath, monitor);

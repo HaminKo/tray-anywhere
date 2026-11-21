@@ -26,6 +26,12 @@ internal sealed class SettingsForm : Form
     private const int OutlineWidth = 240;
     private const int OutlineMaxHeight = 180;
     private const int BoxInset = 2;
+    // The color squares: their side, their frame, and the space between them; and the
+    // space between the size choices.
+    private const int SquareSize = 20;
+    private const int SquareFrame = 2;
+    private const int SquareGap = 6;
+    private const int ChoiceGap = 12;
 
     private static readonly Color Background = Color.FromArgb(32, 32, 32);
     private static readonly Color TextColor = Color.FromArgb(220, 220, 220);
@@ -35,11 +41,16 @@ internal sealed class SettingsForm : Form
     private static readonly Color BoxHover = Color.FromArgb(80, 80, 80);
     private static readonly Color PickedColor = Color.FromArgb(0, 120, 215);
     private static readonly Color PickedHover = Color.FromArgb(30, 140, 230);
+    // The names of the color and size rows while the button is off.
+    private static readonly Color GreyedText = Color.FromArgb(120, 120, 120);
 
     private readonly Autostart autostart;
     // Whether a monitor has a floating button, and what switching it does (App).
     private readonly Func<Screen, bool> buttonOn;
     private readonly Action<Screen, bool> setButtonOn;
+    // A monitor's button's color, size and always on top, and what a change does (App).
+    private readonly Func<Screen, ButtonLook> lookOf;
+    private readonly Action<Screen, ButtonLook> setLook;
     // The monitor's free area; the window opens in its middle.
     private readonly Rectangle area;
     // The controls in rows: a name on the left, its control on the right, or one control
@@ -50,14 +61,27 @@ internal sealed class SettingsForm : Form
     // The outline: one box per monitor at its place on the desktop. Each box is a radio
     // button that looks like a button, so they still are one group (arrow keys, screen
     // readers, the GUI test). In a panel of their own: WinForms makes the radio buttons of
-    // one parent a group, so no later control can join theirs.
-    private readonly Panel outline = new();
+    // one parent a group, so no later control can join theirs. Its Name is its
+    // AutomationId, by which the GUI test finds the boxes.
+    private readonly Panel outline = new() { Name = "Monitors" };
     // Each box with its monitor, for placing them at the window's scaling (ScaleTo).
     private readonly List<(RadioButton Box, Screen Monitor)> boxes = new();
     // The picked monitor's full name, under the outline. Its Name is its AutomationId, by
     // which the GUI test finds it.
     private readonly Label pickedName = new() { Name = "PickedMonitor" };
     private readonly CheckBox showButton = new() { Text = "Show the floating button", AutoSize = true };
+    // The picked monitor's button: its color as a row of squares in each color (radio
+    // buttons that look like buttons, as the boxes), its size, and always on top. Each row
+    // of radio buttons in a panel of its own, so it is a group of its own.
+    private readonly Label colorName = new() { Text = "Color:", AutoSize = true, Anchor = AnchorStyles.Left };
+    private readonly FlowLayoutPanel colorRow = new() { AutoSize = true, WrapContents = false };
+    private readonly List<(RadioButton Square, ButtonColor Color)> squares = new();
+    private readonly Label sizeName = new() { Text = "Size:", AutoSize = true, Anchor = AnchorStyles.Left };
+    private readonly FlowLayoutPanel sizeRow = new() { AutoSize = true, WrapContents = false };
+    private readonly List<(RadioButton Choice, ButtonSize Size)> sizes = new();
+    private readonly CheckBox onTop = new() { Text = "Always on top", AutoSize = true };
+    // The colors' names, on the squares.
+    private readonly ToolTip toolTip = new();
     // The monitor picked in the outline: the settings below it are for its button.
     private Screen picked;
     // The text's font at the window's scaling (ScaleTo); null until the window exists.
@@ -66,12 +90,15 @@ internal sealed class SettingsForm : Form
     private bool showing;
 
     // monitor: the one the window opens on; the outline starts with it picked.
-    public SettingsForm(Screen monitor, Autostart autostart, Func<Screen, bool> buttonOn, Action<Screen, bool> setButtonOn)
+    public SettingsForm(Screen monitor, Autostart autostart, Func<Screen, bool> buttonOn, Action<Screen, bool> setButtonOn,
+        Func<Screen, ButtonLook> lookOf, Action<Screen, ButtonLook> setLook)
     {
         Monitor = monitor;
         this.autostart = autostart;
         this.buttonOn = buttonOn;
         this.setButtonOn = setButtonOn;
+        this.lookOf = lookOf;
+        this.setLook = setLook;
         area = monitor.WorkingArea;
         picked = monitor;
 
@@ -128,10 +155,49 @@ internal sealed class SettingsForm : Form
                 ShowSettings();
             }
         };
+        // Each change of the look is saved with the picked monitor's other two settings.
+        foreach (var color in Enum.GetValues<ButtonColor>())
+        {
+            var square = MakeSquare(color);
+            // As for the boxes: only the square getting the dot acts.
+            square.CheckedChanged += (_, _) =>
+            {
+                SetFrame(square);
+                if (square.Checked && !showing)
+                {
+                    setLook(picked, lookOf(picked) with { Color = color });
+                }
+            };
+            colorRow.Controls.Add(square);
+            squares.Add((square, color));
+        }
+        foreach (var size in Enum.GetValues<ButtonSize>())
+        {
+            var choice = new RadioButton { Text = size.ToString(), AutoSize = true };
+            choice.CheckedChanged += (_, _) =>
+            {
+                if (choice.Checked && !showing)
+                {
+                    setLook(picked, lookOf(picked) with { Size = size });
+                }
+            };
+            sizeRow.Controls.Add(choice);
+            sizes.Add((choice, size));
+        }
+        onTop.CheckedChanged += (_, _) =>
+        {
+            if (!showing)
+            {
+                setLook(picked, lookOf(picked) with { OnTop = onTop.Checked });
+            }
+        };
         AddRow(buttonHeading);
         AddRow(outline);
         AddRow(pickedName);
         AddRow(showButton);
+        AddRow(colorName, colorRow);
+        AddRow(sizeName, sizeRow);
+        AddRow(onTop);
         AddRow(startWithWindows);
         Controls.Add(layout);
 
@@ -151,6 +217,20 @@ internal sealed class SettingsForm : Form
         showing = true;
         startWithWindows.Checked = autostart.IsOn;
         showButton.Checked = buttonOn(picked);
+        var look = lookOf(picked);
+        foreach (var (square, color) in squares)
+        {
+            square.Checked = color == look.Color;
+        }
+        foreach (var (choice, size) in sizes)
+        {
+            choice.Checked = size == look.Size;
+        }
+        onTop.Checked = look.OnTop;
+        // Greyed out while the button is off; kept for when it is on again. The rows' names
+        // stay enabled, in a grey picked for the dark window.
+        colorRow.Enabled = sizeRow.Enabled = onTop.Enabled = showButton.Checked;
+        colorName.ForeColor = sizeName.ForeColor = showButton.Checked ? TextColor : GreyedText;
         showing = false;
     }
 
@@ -159,6 +239,14 @@ internal sealed class SettingsForm : Form
     {
         layout.Controls.Add(control, 0, layout.RowCount);
         layout.SetColumnSpan(control, 2);
+        layout.RowCount++;
+    }
+
+    // A name on the left and its control on the right.
+    private void AddRow(Label name, Control control)
+    {
+        layout.Controls.Add(name, 0, layout.RowCount);
+        layout.Controls.Add(control, 1, layout.RowCount);
         layout.RowCount++;
     }
 
@@ -197,6 +285,17 @@ internal sealed class SettingsForm : Form
         // A gap above Start with Windows, apart from the button's settings. The other
         // controls keep WinForms' 3 px around them.
         startWithWindows.Margin = new Padding(3, space, 3, 3);
+        int Px(int size) => (int)Math.Round(size * dpi / 96f);
+        foreach (var (square, _) in squares)
+        {
+            square.Size = new Size(Px(SquareSize), Px(SquareSize));
+            square.Margin = new Padding(0, 0, Px(SquareGap), 0);
+            square.FlatAppearance.BorderSize = Px(SquareFrame);
+        }
+        foreach (var (choice, _) in sizes)
+        {
+            choice.Margin = new Padding(0, 0, Px(ChoiceGap), 0);
+        }
         PlaceBoxes(dpi);
         SizePickedName();
         var content = layout.PreferredSize;
@@ -223,6 +322,32 @@ internal sealed class SettingsForm : Form
         SetHoverColor(box);
         return box;
     }
+
+    // A color's square: flat, in the button's color, lighter under the mouse as the button
+    // is; its name in a tooltip.
+    private RadioButton MakeSquare(ButtonColor color)
+    {
+        var background = ButtonColors.Background(color);
+        var hover = ButtonColors.Hover(background);
+        var square = new RadioButton
+        {
+            AccessibleName = ButtonColors.Name(color),
+            Appearance = Appearance.Button,
+            FlatStyle = FlatStyle.Flat,
+            BackColor = background,
+        };
+        square.FlatAppearance.CheckedBackColor = background;
+        square.FlatAppearance.MouseOverBackColor = hover;
+        square.FlatAppearance.MouseDownBackColor = hover;
+        toolTip.SetToolTip(square, ButtonColors.Name(color));
+        SetFrame(square);
+        return square;
+    }
+
+    // The picked color's square framed light, the others grey, so the dark one shows on
+    // the dark window too.
+    private static void SetFrame(RadioButton square) =>
+        square.FlatAppearance.BorderColor = square.Checked ? TextColor : BoxColor;
 
     // WinForms paints a flat box under the mouse in MouseOverBackColor whether it is picked
     // or not, so that color changes with the pick.
@@ -327,6 +452,7 @@ internal sealed class SettingsForm : Form
         if (disposing)
         {
             textFont?.Dispose();
+            toolTip.Dispose();
         }
     }
 }

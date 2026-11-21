@@ -36,6 +36,10 @@ Not about scaling, but WinForms window behaviour of the same grid.
 - Moved to the other monitor with `SetWindowPos` from the test (the fake drag of the GUI test, no `WM_MOVING`): WinForms rescaled the text, but the window kept its size, 255x127 from 150 % to 100 % (empty space around the text) and 198x88 from 100 % to 150 % (text cut off). One run each way. Not tried with a real drag. So the settings window stays on its monitor while dragged, as the grid does (`TopWindow.KeepOnMonitor`), and "Settings..." on another monitor opens it there.
 - At 150 % its title, "tray-anywhere settings", was cut off while the window was only as wide as its checkbox: a minimum width of 220 px at 100 % (seen in the screenshots).
 
+## 2026-11-21: the button's look (measured, To do 17 step D)
+- WinForms reads a form's `CreateParams` already in `Control`'s constructor, before the derived class's constructor body has run: `FloatingButton.CreateParams` reading the `look` field crashed with a NullReferenceException there (stack: `Control..ctor` → `get_CreateParams`). So always on top is copied into a `bool` field of its own, false at that point; no window exists yet, so it does no harm.
+- A flat `RadioButton` with `Appearance = Button` as a color square: `FlatAppearance.CheckedBackColor` set to its own color, so the picked one keeps it (WinForms' default for a picked flat button not tried), `BorderColor` changed at each `CheckedChanged` for the frame (light when picked, grey otherwise, so the dark square shows on the dark window). Seen in the screenshots at 150 % and 100 %. The greyed (disabled) look while the button is off wasn't in the screenshots: the owner's hand test.
+
 ## Sources
 - High DPI support in Windows Forms: https://learn.microsoft.com/en-us/dotnet/desktop/winforms/high-dpi-support-in-windows-forms
 - Own measurements on this PC (logs written from the app, removed after).

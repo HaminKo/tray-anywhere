@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Windows.Automation;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using static GuiTest.Checks;
@@ -12,12 +13,16 @@ using static GuiTest.Checks;
 namespace GuiTest;
 
 // The settings file as the app writes it (src/TrayAnywhere/Settings.cs): places measured
-// from each monitor's top-left corner, by the monitor's name (DISPLAY5). The icon order
-// and which monitors have a button, which the app also keeps there, are read on their
-// own (SavedOrderLength, SavedButtonsOff, SavedMainButtonOn).
-internal sealed record SettingsFile(Dictionary<string, Offset> ButtonPlaces, Dictionary<string, Offset> GridPlaces);
+// from each monitor's top-left corner, and each monitor's button look, by the monitor's
+// name (DISPLAY5). The icon order and which monitors have a button, which the app also
+// keeps there, are read on their own (SavedOrderLength, SavedButtonsOff, SavedMainButtonOn).
+internal sealed record SettingsFile(Dictionary<string, Offset> ButtonPlaces, Dictionary<string, Offset> GridPlaces, Dictionary<string, Look> ButtonLooks);
 
 internal sealed record Offset(int X, int Y);
+
+// A floating button's look as the file has it: its color and size by name ("Accent",
+// "Large"), and whether it stays on top.
+internal sealed record Look(string Color, string Size, bool OnTop);
 
 // Where the test dragged its icon's tile: to the first or the last place of this section
 // ("Pinned" or "Overflow").
@@ -112,12 +117,13 @@ internal static class Program
                 // The first monitor's button in the top half of its monitor, as if the user
                 // had dragged it there: its grid opens below it.
                 var savedPlace = new Point(first.WorkingArea.X + first.WorkingArea.Width / 2, first.WorkingArea.Y + Px(first, 100));
-                WriteSettings(settingsPath, new(new() { [Key(first)] = ToOffset(first, savedPlace) }, new()));
+                WriteSettings(settingsPath, new(new() { [Key(first)] = ToOffset(first, savedPlace) }, new(), new()));
                 var (draggedPlace, draggedIcon) = FirstRun(settingsPath, monitors, savedPlace);
                 IconOrderAfterRestart(settingsPath, monitors[0], draggedIcon);
                 AfterRestart(settingsPath, monitors, draggedPlace);
                 SettingsWindow(settingsPath, monitors);
                 ButtonsInSettings(settingsPath, monitors);
+                ButtonLookInSettings(settingsPath, monitors);
                 if (userCopy)
                 {
                     Check(TestedApp.IsRunning(TestedApp.UserLockName), "the user's tray-anywhere still runs", "it has stopped");
@@ -314,8 +320,7 @@ internal static class Program
     private static void ButtonsInSettings(string settingsPath, List<Screen> monitors)
     {
         var main = Screen.PrimaryScreen!;
-        var mouseAtStart = Screen.FromPoint(Cursor.Position);
-        var monitor = monitors.Find(m => m.DeviceName == mouseAtStart.DeviceName) ?? monitors[0];
+        var monitor = MouseMonitor(monitors);
         var others = monitors.FindAll(m => m.DeviceName != monitor.DeviceName);
         Point oldPlace;
         using (var app = new TestedApp(settingsPath))
@@ -386,6 +391,144 @@ internal static class Program
         }
     }
 
+    // The secondary monitor the mouse is on, else the first.
+    private static Screen MouseMonitor(List<Screen> monitors)
+    {
+        var mouse = Screen.FromPoint(Cursor.Position);
+        return monitors.Find(m => m.DeviceName == mouse.DeviceName) ?? monitors[0];
+    }
+
+    // The color, size and always on top of M's button in the settings window (M as in
+    // ButtonsInSettings, which leaves a button on each secondary monitor), in two copies
+    // of the app. Copy 1: the window shows M's defaults (Dark, Small, on top) and the
+    // button has them; Windows' accent color, Large and Always on top unticked each make
+    // M's button again with the change, at its place; the other buttons stay as they
+    // were; settings.json keeps the change. Copy 2, started again: the window and the
+    // button still have them, and a click on the bigger button opens the grid next to it;
+    // back to the defaults, the open grid opens again next to the small button, and
+    // settings.json keeps the defaults. All ended by the test.
+    private static void ButtonLookInSettings(string settingsPath, List<Screen> monitors)
+    {
+        var monitor = MouseMonitor(monitors);
+        var others = monitors.FindAll(m => m.DeviceName != monitor.DeviceName);
+        var dark = Color.FromArgb(32, 32, 32);
+        var accent = AccentColor();
+        var small = new Size(Px(monitor, 32), Px(monitor, 32));
+        var large = new Size(Px(monitor, 48), Px(monitor, 48));
+        using (var app = new TestedApp(settingsPath))
+        {
+            var window = OpenSettingsWindow(app, monitor);
+            CheckLookShown(window, "Dark", "Small", onTop: true, $"for {Key(monitor)} it shows the defaults: Dark, Small, Always on top");
+            WaitForButton(app, monitor, "and its button has them", dark, small, onTop: true);
+
+            Pick(window, "Windows' accent color");
+            WaitForButton(app, monitor, $"Windows' accent color ({accent.R}, {accent.G}, {accent.B}) makes it again in that color", accent, small, onTop: true);
+            Pick(window, "Large");
+            var button = WaitForButton(app, monitor, "Large makes it again, bigger", accent, large, onTop: true);
+            CheckButtonPlace(button, monitor, settingsPath);
+            AppWindow.Toggle(ControlNamed(window, "Always on top"));
+            WaitForButton(app, monitor, "Always on top unticked makes it again, not on top", accent, large, onTop: false);
+            if (others.Count > 0)
+            {
+                Check(others.All(m => app.Buttons().Exists(b => IsOn(b, m) && b.IsOnTop && b.Bounds.Size == new Size(Px(m, 32), Px(m, 32)))),
+                    "the other monitors' buttons are still small and on top", ButtonMonitors(app));
+            }
+            CheckSavedLook(settingsPath, monitor, new Look("Accent", "Large", false));
+        }
+        using (var app = new TestedApp(settingsPath))
+        {
+            var window = OpenSettingsWindow(app, monitor);
+            CheckLookShown(window, "Windows' accent color", "Large", onTop: false, "started again, the window shows them");
+            var button = WaitForButton(app, monitor, "and the button has them", accent, large, onTop: false);
+            button.Click();
+            var grid = WaitForGrid(app, monitor, "a click on it opens the grid");
+            // M's button is in the bottom half of its monitor: in its corner, or where
+            // DragGrid dragged it.
+            CheckNextToButton(grid, button, monitor, below: false);
+
+            Pick(window, "Dark");
+            WaitForButton(app, monitor, "Dark makes it again, dark", dark, large, onTop: false);
+            Pick(window, "Small");
+            WaitForButton(app, monitor, "Small makes it again, small", dark, small, onTop: false);
+            AppWindow.Toggle(ControlNamed(window, "Always on top"));
+            button = WaitForButton(app, monitor, "Always on top ticked makes it again, on top", dark, small, onTop: true);
+            // Each change closes the grid and opens it again; the last opening is at this button.
+            grid = WaitForGrid(app, monitor, "the grid opens again");
+            CheckNextToButton(grid, button, monitor, below: false);
+            CheckSavedLook(settingsPath, monitor, new Look("Dark", "Small", true));
+        }
+    }
+
+    // The settings window shows this color, size and always on top for the picked monitor.
+    private static void CheckLookShown(AppWindow window, string color, string size, bool onTop, string what)
+    {
+        var colorPicked = AppWindow.IsSelected(ControlNamed(window, color));
+        var sizePicked = AppWindow.IsSelected(ControlNamed(window, size));
+        var onTopTicked = AppWindow.IsTicked(ControlNamed(window, "Always on top"));
+        Check(colorPicked && sizePicked && onTopTicked == onTop, what,
+            $"{color} picked: {colorPicked}, {size} picked: {sizePicked}, Always on top ticked: {onTopTicked}");
+    }
+
+    // Picks the color or size with this name in the settings window.
+    private static void Pick(AppWindow window, string name) => AppWindow.Select(ControlNamed(window, name));
+
+    private static AutomationElement ControlNamed(AppWindow window, string name) =>
+        window.Control(name) ?? throw new CheckFailed($"the settings window has no {name}");
+
+    // Waits for the button on this monitor to have this color, size and always on top: the
+    // app makes the button again at each change, so it is looked for again each time. A
+    // failure lists every button there, to tell an old button left open from a new one
+    // drawn wrong.
+    private static AppWindow WaitForButton(TestedApp app, Screen monitor, string what, Color color, Size size, bool onTop)
+    {
+        AppWindow? found = null;
+        WaitUntil(what, () => (found = app.Buttons().Find(b => IsOn(b, monitor) && b.Bounds.Size == size && b.IsOnTop == onTop && HasColor(b, color))) != null,
+            found: () => "buttons there: [" + string.Join("; ", app.Buttons().Where(b => IsOn(b, monitor)).Select(b =>
+                $"{b.Bounds.Width} × {b.Bounds.Height}, {(b.IsOnTop ? "" : "not ")}on top, color {b.ColorAt(ColorPoint(b, monitor))?.ToString() ?? "unknown"}")) + "]");
+        return found!;
+    }
+
+    // The button's color, read in the middle of its top edge, away from the arrow and the
+    // round corners, within 2 per channel. Under the mouse it is 15 % of the way to white.
+    private static bool HasColor(AppWindow button, Color color)
+    {
+        if (button.ColorAt(ColorPoint(button, Screen.FromRectangle(button.Bounds))) is not Color found)
+        {
+            return false;
+        }
+        static bool Near(Color a, Color b) => Math.Abs(a.R - b.R) <= 2 && Math.Abs(a.G - b.G) <= 2 && Math.Abs(a.B - b.B) <= 2;
+        static int Lighter(int value) => value + (int)Math.Round((255 - value) * 0.15);
+        return Near(found, color) || Near(found, Color.FromArgb(Lighter(color.R), Lighter(color.G), Lighter(color.B)));
+    }
+
+    private static Point ColorPoint(AppWindow button, Screen monitor) => new(button.Bounds.Width / 2, Px(monitor, 4));
+
+    // Windows' accent color as Settings > Personalization > Colors keeps it: AccentColor in
+    // DWM's key, red in the lowest byte (measured, To do 17 step D). Without it the app
+    // uses Blue, Windows' default accent.
+    private static Color AccentColor() =>
+        Registry.GetValue(@"HKEY_CURRENT_USER\Software\Microsoft\Windows\DWM", "AccentColor", null) is int abgr
+            ? Color.FromArgb(abgr & 0xFF, (abgr >> 8) & 0xFF, (abgr >> 16) & 0xFF)
+            : Color.FromArgb(0, 120, 212);
+
+    // A button made again keeps its place: where it was dragged (settings.json), or else
+    // its corner for its new size.
+    private static void CheckButtonPlace(AppWindow button, Screen monitor, string settingsPath)
+    {
+        var saved = ReadSettings(settingsPath).ButtonPlaces.GetValueOrDefault(Key(monitor));
+        var bounds = button.Bounds;
+        var expected = saved == null ? Corner(monitor, bounds.Size) : new Point(monitor.Bounds.X + saved.X, monitor.Bounds.Y + saved.Y);
+        Check(bounds.Location == expected, saved == null ? "in its corner above the clock" : "at its dragged place",
+            $"it is at {bounds.Location}, expected {expected}");
+    }
+
+    private static void CheckSavedLook(string settingsPath, Screen monitor, Look expected)
+    {
+        var saved = ReadSettings(settingsPath).ButtonLooks.GetValueOrDefault(Key(monitor));
+        Check(saved == expected, $"settings.json keeps {expected.Color}, {expected.Size}, {(expected.OnTop ? "" : "not ")}on top for {Key(monitor)}",
+            $"it has {saved?.ToString() ?? "none"}");
+    }
+
     // True when the app shows a button on each of these monitors and on no other.
     private static bool ButtonsOn(TestedApp app, List<Screen> monitors)
     {
@@ -402,7 +545,7 @@ internal static class Program
     {
         var named = MonitorNames(here);
         var expected = named.Select(n => n.Name).Order().ToList();
-        var boxes = window.RadioButtons();
+        var boxes = window.RadioButtons("Monitors");
         var names = boxes.Select(box => box.Current.Name).Order().ToList();
         Check(names.SequenceEqual(expected), $"it has a box for each monitor: {string.Join("; ", expected)}", $"it has {string.Join("; ", names)}");
         CheckOutline(named.ConvertAll(n => (n.Monitor, new AppWindow(boxes.Find(box => box.Current.Name == n.Name)!).Bounds)), here);
@@ -442,7 +585,7 @@ internal static class Program
     private static void PickMonitor(AppWindow window, Screen monitor, Screen here)
     {
         var name = MonitorName(monitor, here);
-        var box = window.RadioButtons().Find(r => r.Current.Name == name);
+        var box = window.RadioButtons("Monitors").Find(r => r.Current.Name == name);
         Check(box != null, $"the window has a box for {name}", "it hasn't");
         AppWindow.Select(box);
         WaitUntil($"{name} picked, its name under the boxes", () => AppWindow.IsSelected(box) && PickedName(window) == name,

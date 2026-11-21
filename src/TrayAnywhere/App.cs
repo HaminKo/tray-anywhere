@@ -154,10 +154,11 @@ internal sealed class App : ApplicationContext
         }
     }
 
-    // The floating button of this monitor, where the user last dragged it there.
+    // The floating button of this monitor, where the user last dragged it there, as its
+    // settings give it.
     private void MakeButton(Screen monitor)
     {
-        var button = new FloatingButton(monitor, settings.ButtonPlace(monitor), NewMenu(monitor));
+        var button = new FloatingButton(monitor, settings.ButtonPlace(monitor), settings.LookOf(monitor), NewMenu(monitor));
         button.Clicked += () => OpenOrCloseGrid(monitor);
         button.Dragged += place => settings.SetButtonPlace(monitor, place);
         // An open grid on this monitor goes along with the button while it is dragged.
@@ -175,13 +176,29 @@ internal sealed class App : ApplicationContext
     // The floating button on this monitor, or null if it has none.
     private FloatingButton? ButtonOf(Screen monitor) => buttons.Find(b => b.Monitor.DeviceName == monitor.DeviceName);
 
-    // "Show the floating button" in the settings window. A grid open there was
-    // placed for the button as it was, so it closes and opens again at its new place:
-    // next to the button, or else where the grid was last dragged there or in the corner.
-    // The button's own place stays saved, for when it is turned on again.
+    // "Show the floating button" in the settings window.
     private void SetButtonOn(Screen monitor, bool on)
     {
         settings.SetButtonOn(monitor, on);
+        MakeButtonAgain(monitor);
+    }
+
+    // The color, size and always on top of a monitor's button in the settings window.
+    // Always on top is set only when Windows creates a window, so the button is made again
+    // for each change.
+    private void SetLook(Screen monitor, ButtonLook look)
+    {
+        settings.SetLook(monitor, look);
+        MakeButtonAgain(monitor);
+    }
+
+    // After a change to a monitor's button settings: its button closes and, if it is on,
+    // is made again as the settings now give it. A grid open there was placed for the
+    // button as it was, so it closes and opens again at its new place: next to the
+    // button, or else where the grid was last dragged there or in the corner. The
+    // button's own place stays saved, for when it is turned on again.
+    private void MakeButtonAgain(Screen monitor)
+    {
         // A grid open on another monitor stays as it is.
         var gridHere = false;
         if (grid != null && grid.Monitor.DeviceName == monitor.DeviceName)
@@ -195,7 +212,7 @@ internal sealed class App : ApplicationContext
             button.Close();
             buttons.Remove(button);
         }
-        if (on)
+        if (settings.ButtonOn(monitor))
         {
             MakeButton(monitor);
         }
@@ -271,7 +288,7 @@ internal sealed class App : ApplicationContext
         }
         if (settingsWindow == null)
         {
-            settingsWindow = new SettingsForm(monitor, autostart, settings.ButtonOn, SetButtonOn);
+            settingsWindow = new SettingsForm(monitor, autostart, settings.ButtonOn, SetButtonOn, settings.LookOf, SetLook);
             settingsWindow.FormClosed += (_, _) => settingsWindow = null;
             settingsWindow.Show();
         }

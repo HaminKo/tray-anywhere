@@ -34,6 +34,8 @@ internal static class Win32
     public static readonly IntPtr MessageOnlyParent = new(-3);
     // For DwmGetWindowAttribute: the window's frame as it shows, without the invisible border.
     public const int DwmwaExtendedFrameBounds = 9;
+    // For PrintWindow: the window's picture as Windows' compositor has it.
+    public const uint PwRenderFullContent = 0x2;
     // From SHQueryUserNotificationState: Windows shows notification popups now (no
     // full-screen program, no Do Not Disturb).
     public const int QunsAcceptsNotifications = 5;
@@ -104,6 +106,9 @@ internal static class Win32
 
     [DllImport("dwmapi.dll")]
     public static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out Rect value, int size);
+
+    [DllImport("user32.dll")]
+    public static extern bool PrintWindow(IntPtr window, IntPtr dc, uint flags);
 
     [DllImport("user32.dll")]
     private static extern IntPtr MonitorFromPoint(Point point, uint flags);

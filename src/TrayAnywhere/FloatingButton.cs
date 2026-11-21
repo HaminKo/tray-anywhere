@@ -6,27 +6,34 @@ using System.Windows.Forms;
 
 namespace TrayAnywhere;
 
-// The floating button: a small dark square with Windows' "show hidden icons" arrow, one
-// on each monitor where the settings give one: by default each secondary monitor
-// (owner's choice). A click opens or
-// closes the grid next to it, on the side its arrow points to; dragging moves it within
-// its monitor; a right click gives the app's menu (AppMenu). It is always on top, and
-// takes the keyboard focus only when clicked or dragged, not when it appears.
+// The floating button: a small square with Windows' "show hidden icons" arrow, one on
+// each monitor where the settings give one: by default each secondary monitor (owner's
+// choice). Its color, size and always on top are set per monitor in the settings window
+// (ButtonLook); a change there makes the button again (App). A click opens or closes the
+// grid next to it, on the side its arrow points to; dragging moves it within its monitor;
+// a right click gives the app's menu (AppMenu). It takes the keyboard focus only when
+// clicked or dragged, not when it appears.
 internal sealed class FloatingButton : Form
 {
-    // Sizes at 100 % scaling, in pixels.
-    private const int ButtonSize = 32;
-    // The arrow: a ^ (or a v) this wide, drawn with a line this thick.
+    // Sizes at 100 % scaling, in pixels. The arrow on the small button: a ^ (or a v) this
+    // wide, drawn with a line this thick; on a bigger button as much bigger.
     private const int ArrowWidth = 10;
     private const float ArrowLine = 1.5f;
     // Between the button and the screen's edge, as for the grid.
     private const int ScreenGap = 12;
 
-    // Dark, like the grid; lighter under the mouse.
-    private static readonly Color Background = Color.FromArgb(32, 32, 32);
-    private static readonly Color HoverBackground = Color.FromArgb(64, 64, 64);
     private static readonly Color ArrowColor = Color.FromArgb(220, 220, 220);
+    // Windows' message to every window when its colors change, the accent color too.
+    private const int WmDwmColorizationColorChanged = 0x0320;
 
+    private readonly ButtonLook look;
+    // The look's always on top, in a field of its own: WinForms reads CreateParams in
+    // Form's constructor already, before this constructor has set `look` (measured: a
+    // crash there). False at that point, which is harmless: no window exists yet.
+    private readonly bool onTop;
+    // The background in the button's color, and lighter under the mouse.
+    private Color background;
+    private Color hoverBackground;
     // The scaling of the button's monitor: 1.5 at 150 %.
     private readonly float scale;
     // The button's monitor without its taskbar, in physical pixels; the button stays inside it.
@@ -43,11 +50,13 @@ internal sealed class FloatingButton : Form
     private Point pressPlace;
 
     // monitor: the monitor the button is on. place: where the user last dragged
-    // it there, or null for just above the right end of the taskbar. menu: its right-click
-    // menu (AppMenu), disposed with the button.
-    public FloatingButton(Screen monitor, Point? place, ContextMenuStrip menu)
+    // it there, or null for just above the right end of the taskbar. look: its color,
+    // size and always on top. menu: its right-click menu (AppMenu), disposed with the button.
+    public FloatingButton(Screen monitor, Point? place, ButtonLook look, ContextMenuStrip menu)
     {
         Monitor = monitor;
+        this.look = look;
+        onTop = look.OnTop;
         scale = Dpi.ScaleOf(monitor);
         area = monitor.WorkingArea;
         savedPlace = place;
@@ -59,12 +68,13 @@ internal sealed class FloatingButton : Form
         ShowInTaskbar = false;
         // Sizes are in this monitor's physical pixels already (see GridForm).
         AutoScaleMode = AutoScaleMode.None;
-        BackColor = Background;
+        SetColors();
+        BackColor = background;
         toolTip.SetToolTip(this, $"Tray icons ({App.HotkeyName})");
 
         ContextMenuStrip = menu;
 
-        ClientSize = new Size(Px(ButtonSize), Px(ButtonSize));
+        ClientSize = new Size(Side, Side);
         // Made in the middle of its monitor; OnLoad moves it to its place (see GridForm).
         StartPosition = FormStartPosition.Manual;
         Location = new Point(area.X + area.Width / 2, area.Y + area.Height / 2);
@@ -100,9 +110,13 @@ internal sealed class FloatingButton : Form
         get
         {
             var createParams = base.CreateParams;
-            // Always on top, set here instead of with TopMost: WinForms activates a TopMost
-            // window when it shows, which ShowWithoutActivation is there to prevent.
-            createParams.ExStyle |= TopWindow.WsExTopmost;
+            // Always on top, unless turned off for this monitor. Set here instead of with
+            // TopMost: WinForms activates a TopMost window when it shows, which
+            // ShowWithoutActivation is there to prevent.
+            if (onTop)
+            {
+                createParams.ExStyle |= TopWindow.WsExTopmost;
+            }
             return createParams;
         }
     }
@@ -113,8 +127,18 @@ internal sealed class FloatingButton : Form
     {
         base.OnLoad(e);
         Location = Place();
-        ClientSize = new Size(Px(ButtonSize), Px(ButtonSize));
+        ClientSize = new Size(Side, Side);
         Location = Place();
+    }
+
+    // The button's side in this monitor's pixels.
+    private int Side => Px((int)look.Size);
+
+    // The background from the button's color. Windows' accent color is read again each time.
+    private void SetColors()
+    {
+        background = ButtonColors.Background(look.Color);
+        hoverBackground = ButtonColors.Hover(background);
     }
 
     // Where the user last dragged the button, or else just above the right end of the
@@ -131,7 +155,22 @@ internal sealed class FloatingButton : Form
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);
-        TopWindow.KeepOnTop(this);
+        if (onTop)
+        {
+            TopWindow.KeepOnTop(this);
+        }
+    }
+
+    // Windows' accent color changed (Settings > Personalization > Colors): a button in that
+    // color takes the new one.
+    protected override void WndProc(ref Message m)
+    {
+        base.WndProc(ref m);
+        if (m.Msg == WmDwmColorizationColorChanged && look.Color == ButtonColor.Accent)
+        {
+            SetColors();
+            BackColor = background;
+        }
     }
 
     protected override void OnMouseDown(MouseEventArgs e)
@@ -208,13 +247,13 @@ internal sealed class FloatingButton : Form
     protected override void OnMouseEnter(EventArgs e)
     {
         base.OnMouseEnter(e);
-        BackColor = HoverBackground;
+        BackColor = hoverBackground;
     }
 
     protected override void OnMouseLeave(EventArgs e)
     {
         base.OnMouseLeave(e);
-        BackColor = Background;
+        BackColor = background;
     }
 
     // Drawn again at each move: a drag across the middle of the monitor turns the arrow.
@@ -225,18 +264,20 @@ internal sealed class FloatingButton : Form
     }
 
     // The arrow in the middle, pointing to where the grid opens: a ^, or a v when the
-    // grid opens below. Half as tall as it is wide, with round line ends.
+    // grid opens below. Half as tall as it is wide, with round line ends; as much bigger
+    // as the button is bigger than the small one.
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-        using var pen = new Pen(ArrowColor, ArrowLine * scale)
+        var grow = scale * (float)look.Size / (float)ButtonSize.Small;
+        using var pen = new Pen(ArrowColor, ArrowLine * grow)
         {
             StartCap = LineCap.Round,
             EndCap = LineCap.Round,
             LineJoin = LineJoin.Round,
         };
-        var half = ArrowWidth * scale / 2;
+        var half = ArrowWidth * grow / 2;
         var x = ClientSize.Width / 2f;
         var y = ClientSize.Height / 2f;
         // How far the tip sits below the middle: above it for a ^, below it for a v.

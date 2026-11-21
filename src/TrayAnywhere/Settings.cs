@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Windows.Forms;
 using Tray;
 
@@ -14,8 +15,8 @@ namespace TrayAnywhere;
 internal sealed record Offset(int X, int Y);
 
 // The settings file (%APPDATA%\tray-anywhere\settings.json): where the user dragged each
-// floating button and the grid, per monitor, the grid's icon order, and which monitors
-// have a button. Each change saves it at once.
+// floating button and the grid, per monitor, the grid's icon order, which monitors have a
+// button and how each looks. Each change saves it at once.
 internal sealed class Settings
 {
     // By the monitor's name without "\\.\" (e.g. DISPLAY5). Windows can give a monitor a
@@ -31,13 +32,22 @@ internal sealed class Settings
     // Whether the main monitor has a floating button too; off by default, as its taskbar
     // has the real tray. Kept for whichever monitor is the main one, not by name.
     public bool MainButtonOn { get; set; }
+    // Each monitor's floating button: its color, size and always on top, by name as above.
+    // A monitor not listed has the defaults (ButtonLook).
+    public Dictionary<string, ButtonLook> ButtonLooks { get; set; } = new();
 
     public static string DefaultPath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "tray-anywhere", "settings.json");
 
     // Indented, so the file is easy to read. A missing list (null) is a broken file, not
-    // an empty list.
-    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true, RespectNullableAnnotations = true };
+    // an empty list. Colors and sizes by name ("Blue", "Large"); a number or an unknown
+    // name in their place is a broken file too.
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = true,
+        RespectNullableAnnotations = true,
+        Converters = { new JsonStringEnumConverter(allowIntegerValues: false) },
+    };
 
     // The file these settings were read from and are saved to.
     private string path = "";
@@ -111,6 +121,16 @@ internal sealed class Settings
                 ButtonsOff.Add(Key(monitor));
             }
         }
+        Save();
+    }
+
+    // The color, size and always on top of the monitor's button in the settings window. A
+    // look written as null in the file counts as the defaults.
+    public ButtonLook LookOf(Screen monitor) => ButtonLooks.GetValueOrDefault(Key(monitor)) ?? new ButtonLook();
+
+    public void SetLook(Screen monitor, ButtonLook look)
+    {
+        ButtonLooks[Key(monitor)] = look;
         Save();
     }
 

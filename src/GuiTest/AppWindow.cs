@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Automation;
@@ -11,7 +12,7 @@ namespace GuiTest;
 // One of the app's windows as UI Automation finds it: the grid, a floating button, the
 // settings window or a tile (in WinForms each control is a window of its own). The test
 // works it with messages to this window only, the ones Windows would send it for the
-// real mouse and keyboard.
+// real mouse and keyboard, and reads its picture with PrintWindow.
 internal sealed class AppWindow
 {
     public AppWindow(AutomationElement element)
@@ -139,9 +140,34 @@ internal sealed class AppWindow
     public AutomationElement? ControlWithId(string id) =>
         Element.FindFirst(TreeScope.Descendants, new PropertyCondition(AutomationElement.AutomationIdProperty, id));
 
-    // The window's radio buttons (the settings window's monitor boxes), in UI Automation's
-    // order: the checks find each by its name.
-    public List<AutomationElement> RadioButtons() =>
-        Element.FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton))
+    // The radio buttons in the panel with this AutomationId (the settings window's monitor
+    // boxes in "Monitors"), in UI Automation's order: the checks find each by its name.
+    public List<AutomationElement> RadioButtons(string panelId) =>
+        (ControlWithId(panelId) ?? throw new CheckFailed($"the window has no {panelId}"))
+            .FindAll(TreeScope.Descendants, new PropertyCondition(AutomationElement.ControlTypeProperty, ControlType.RadioButton))
             .Cast<AutomationElement>().ToList();
+
+    // The color the window draws at this point, from its top-left corner, in the picture
+    // Windows gives with PrintWindow: also where another window covers it. Null when
+    // Windows gives none (the window has just gone).
+    public Color? ColorAt(Point point)
+    {
+        var bounds = Bounds;
+        if (point.X >= bounds.Width || point.Y >= bounds.Height)
+        {
+            return null;
+        }
+        using var picture = new Bitmap(bounds.Width, bounds.Height, PixelFormat.Format24bppRgb);
+        using (var graphics = Graphics.FromImage(picture))
+        {
+            var dc = graphics.GetHdc();
+            var given = PrintWindow(Handle, dc, PwRenderFullContent);
+            graphics.ReleaseHdc(dc);
+            if (!given)
+            {
+                return null;
+            }
+        }
+        return picture.GetPixel(point.X, point.Y);
+    }
 }
