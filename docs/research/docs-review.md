@@ -14,7 +14,7 @@ A fresh subagent that hadn't seen the project checked README.md, docs/releasing.
 - `%APPDATA%\tray-anywhere` instead of `$env:APPDATA\...`: the README path is for File Explorer, which doesn't understand PowerShell's form. The owner's "no %VAR%" rule is for terminal commands.
 - Build from source now says how to get the source and to get the new source before updating; no clone URL, as it holds the GitHub login.
 
-## Kept for docs/guide.md (to add when the README trim makes it)
+## Kept for docs/guide.md (added there 2026-11-22)
 - Each monitor's settings are kept by Windows' name for it (DISPLAY5); a re-plugged monitor that gets a new name loses its button's place, look and on/off (accepted on 2026-11-14).
 - Keyboard use in the grid: Tab and the arrow keys move between icons, Enter clicks, the menu key or Shift+F10 right-clicks (IconTile.cs, checked).
 - A settings.json that can't be read: a message at start, the default places, and the file isn't written until it can be read (Program.cs, checked).

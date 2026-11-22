@@ -35,6 +35,8 @@ Where you dragged the buttons, the popup and its icons, which monitors have a bu
 
 Windows' notifications (and tray apps' balloons) also follow the mouse: while it is on another monitor, they show at that monitor's bottom right instead of the main one's.
 
+More details, such as using the popup with the keyboard: [docs/guide.md](docs/guide.md).
+
 ## Start with Windows
 Right-click a floating button or the popup's background, choose Settings... and tick Start with Windows. Windows now starts tray-anywhere from its folder each time you sign in. Untick it to turn it off. If you move the folder, tick it again from the new place.
 

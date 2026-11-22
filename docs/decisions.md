@@ -2,6 +2,14 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-22: The README isn't trimmed; docs/guide.md starts with the details it leaves out
+- What: the README stays as it is, plus one line linking to docs/guide.md. The guide starts with the three details the docs review kept for it (docs/research/docs-review.md): the popup with the keyboard, settings kept by monitor name, a settings file that can't be read.
+- Reason: the README already fits the README rule's length (measured: 98 lines, about 156 when wrapped at 100 characters; the longest sections Build from source 46, How to use 33, Known limitations 31; Install from line 10), so the trim skill stops there.
+- Decided by: the owner ("go with your suggestions"; Claude's suggestion).
+- Rejected:
+  - A full trim to a short feature list linking into the guide: every section already fits a screen, and each link is one more click for a visitor.
+  - A light pass moving the README's few edge cases (such as "Shift alone isn't enough") to the guide: the rule says no edge cases, but each moved sentence costs the reader who needs it a click, for little gain at this length.
+
 ## 2026-11-21: The public repo starts with one clean commit, with GitHub's private noreply email
 - What: the tracked files and the history hold no personal path and no GitHub login (searched: docs/research/release.md, "Personal details in the repo"), but all 42 commits carry the owner's personal email as author email. Commits from now on use GitHub's noreply address (set by the owner in this repo's git config). As the last step before the first release, the current private repo stays private, renamed, as the archive with the full history, and a new public repo of the same name starts with one commit of the current files.
 - Reason: anyone can read a public commit's author email, and the owner keeps even the login out of the files; an email is more personal. The repo was still private, so nothing is out yet. The reasons behind the code are in docs/decisions.md and docs/archive/, not only in the history.
