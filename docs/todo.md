@@ -1,5 +1,5 @@
 ## Where we are
-- Now: Before a public release (no to-dos open)
+- Now: To do 18 (hide the button while a full-screen program is in front)
 - Next: none
 - Updated: 2026-11-21
 
@@ -7,11 +7,11 @@
 Next number: 23. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
 
 ### Now
+- To do 18: Hide the floating button while a full-screen program is in front (small; Claude 2026-11-20): docs/todo/18-hide-button-full-screen.md
 
 ### Bugs me
 
 ### Someday
-- To do 18: Hide the floating button while a full-screen program is in front (small; Claude 2026-11-20): docs/todo/18-hide-button-full-screen.md
 
 ## Later, only if the user asks
 
