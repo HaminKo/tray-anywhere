@@ -7,7 +7,7 @@ using Microsoft.Win32;
 namespace TrayAnywhere;
 
 // The colors a floating button can have, picked in the settings window. The arrow on it
-// stays light in each.
+// is light in each, and dark only on a light accent color (ButtonColors.Arrow).
 internal enum ButtonColor
 {
     Dark,
@@ -60,6 +60,32 @@ internal static class ButtonColors
     {
         static int Lighter(int value) => value + (int)Math.Round((255 - value) * 0.15);
         return Color.FromArgb(Lighter(color.R), Lighter(color.G), Lighter(color.B));
+    }
+
+    // The arrow on a background: light, unless it would stand out less than 3:1 there
+    // (WCAG's least contrast for a control's graphics), as on a yellow or light green
+    // accent; then dark, as the Dark button. Every fixed color passes, so only the accent
+    // can get the dark arrow. By the button's own color, not the lighter one under the
+    // mouse, so the arrow doesn't change when the mouse comes over it.
+    public static Color Arrow(Color background)
+    {
+        var lightArrow = Color.FromArgb(220, 220, 220);
+        var contrast = (Luminance(lightArrow) + 0.05) / (Luminance(background) + 0.05);
+        return contrast >= 3 ? lightArrow : Background(ButtonColor.Dark);
+    }
+
+    // How bright a color looks, from 0 (black) to 1 (white), as WCAG defines it: each
+    // channel turned into linear light first, so a pure green counts as much brighter
+    // than a pure blue (decisions.md: a plain weighted sum of R, G, B can't tell a mint
+    // accent from the fixed Purple).
+    private static double Luminance(Color color)
+    {
+        static double Linear(int value)
+        {
+            var c = value / 255.0;
+            return c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * Linear(color.R) + 0.7152 * Linear(color.G) + 0.0722 * Linear(color.B);
     }
 
     // The name in the settings window (its tooltip, and for screen readers and the GUI test).

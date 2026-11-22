@@ -12,7 +12,6 @@ Next number: 23. Numbers are permanent: never renumber or reuse one; to move a t
 
 ### Someday
 - To do 18: Hide the floating button while a full-screen program is in front (small; Claude 2026-11-20): docs/todo/18-hide-button-full-screen.md
-- To do 20: A readable arrow on a floating button in a light accent color (small; user 2026-11-21): docs/todo/20-arrow-on-light-accent.md
 
 ## Later, only if the user asks
 

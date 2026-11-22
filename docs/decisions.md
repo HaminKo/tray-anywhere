@@ -2,6 +2,16 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-21: A dark arrow on a floating button where the light one would stand out less than 3:1
+- What (To do 20): the button's arrow stays light (220, 220, 220) unless its contrast with the button's color is under 3:1, WCAG's least for a control's graphics (contrast from WCAG's relative luminance); then it is dark (32, 32, 32), the Dark button's color. One rule for every color, by the button's own color, not the lighter one under the mouse, so the arrow doesn't change when the mouse comes over it. Read again with the accent when Windows announces a color change. The settings window's squares have no arrow and are unchanged.
+- Reason: a light accent (yellow) made the light arrow hard to see. Contrast of the light arrow (computed; the accent swatches' values from memory, not read from this PC): the fixed colors 3.28 (Orange) to 3.91 (Green), and this PC's accent #0078D4 3.30, so nothing changes on it; Windows' accent swatches Yellow #FFB900 1.26, Gold #FF8C00 1.70, Turf green #00CC6A 1.56, Mint #00B294 1.96, Cool blue #0099BC 2.44, each 4.9 to 9.5 with the dark arrow.
+- Decided by: the owner ("go with your suggestions"), To do 20.
+- Rejected:
+  - The to-do's first idea, brightness 0.299 R + 0.587 G + 0.114 B over about 160: it can't tell Mint (121) from the fixed Purple (120), so green and cyan accents would keep an arrow that barely shows (Turf green 132, Gold 158, both under 160).
+  - Windows' darker accent shade (`StartColorMenu`, AccentPalette entry 4) with the light arrow: the darker shade of yellow is likely still too light (estimate: not measured, that needs changing the owner's accent), and "Windows' accent color" would no longer be the color Settings shows. Windows' own dark-mode accent buttons put dark text on the accent (from memory of WinUI, not checked).
+  - The rule only for the accent: a special case in the code for no difference, as every fixed color passes.
+  - A GUI test step: the test can't set Windows' accent, and a test-only color would be code for the test alone; tested by hand.
+
 ## 2026-11-21: "Reset icon order" in the settings window too, greyed while no order is dragged
 - What (To do 22): a flat button "Reset icon order" in a row of its own at the bottom of the settings window, under the hotkey's note, with a gap above it as above Start with Windows. A click does what the menu item does (both lists emptied, an open grid shown in the tray's order again), at once and without asking. Greyed while neither section has a dragged order; set each time the window shows its settings, so also when the user comes back to it after dragging a tile. The right-click menus keep their item.
 - Reason: the owner asked for it while testing To do 21 ("shouldn't reset icon order also be in settings?"): the settings window is where the owner now looks for what changes the app. The grey also shows whether the order was ever changed.
@@ -29,7 +39,7 @@ Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what wa
   - A dropdown for the color: hard to make fully dark in WinForms, and an unmeasured UI Automation path for the test.
   - The look of the main monitor's button by role, like `MainButtonOn` (code review): by name like its place; if Windows makes another monitor the main one, the look stays with the old one. No case seen.
   - Changing the color in place instead of making the button again (code review: arrowing through the squares with a grid open closes and reopens it at each step): one path for all three settings; no case seen.
-- Left (not built, no case seen): a light accent color (yellow) makes the light arrow hard to see (To do 20, Someday); the settings window's accent square doesn't follow an accent change while it is open.
+- Left (not built, no case seen): a light accent color (yellow) makes the light arrow hard to see (To do 20, Someday; built 2026-11-21: a dark arrow there); the settings window's accent square doesn't follow an accent change while it is open.
 
 ## 2026-11-21: The monitors as an outline like Windows' Display settings, at the top of the settings window
 - What: the settings window's monitor list becomes an outline: one box per monitor at its place and size (`Screen.Bounds`, one scale for all), the picked one blue, labelled "Main", "Left", "Right" (full name, size and "(this one)" in a line under it and as each box's accessible name). Order: the outline and the picked button's settings first, then a gap and Start with Windows at the bottom. Built as To do 17 step C; the button's color, size and always on top become step D.

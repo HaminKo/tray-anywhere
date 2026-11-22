@@ -22,7 +22,6 @@ internal sealed class FloatingButton : Form
     // Between the button and the screen's edge, as for the grid.
     private const int ScreenGap = 12;
 
-    private static readonly Color ArrowColor = Color.FromArgb(220, 220, 220);
     // Windows' message to every window when its colors change, the accent color too.
     private const int WmDwmColorizationColorChanged = 0x0320;
 
@@ -31,9 +30,11 @@ internal sealed class FloatingButton : Form
     // Form's constructor already, before this constructor has set `look` (measured: a
     // crash there). False at that point, which is harmless: no window exists yet.
     private readonly bool onTop;
-    // The background in the button's color, and lighter under the mouse.
+    // The background in the button's color, and lighter under the mouse; the arrow light
+    // on it, or dark on a light accent color.
     private Color background;
     private Color hoverBackground;
+    private Color arrow;
     // The scaling of the button's monitor: 1.5 at 150 %.
     private readonly float scale;
     // The button's monitor without its taskbar, in physical pixels; the button stays inside it.
@@ -138,11 +139,13 @@ internal sealed class FloatingButton : Form
     // The button's side in this monitor's pixels.
     private int Side => Px((int)look.Size);
 
-    // The background from the button's color. Windows' accent color is read again each time.
+    // The background and the arrow from the button's color. Windows' accent color is read
+    // again each time.
     private void SetColors()
     {
         background = ButtonColors.Background(look.Color);
         hoverBackground = ButtonColors.Hover(background);
+        arrow = ButtonColors.Arrow(background);
     }
 
     // Where the user last dragged the button, or else just above the right end of the
@@ -166,7 +169,7 @@ internal sealed class FloatingButton : Form
     }
 
     // Windows' accent color changed (Settings > Personalization > Colors): a button in that
-    // color takes the new one.
+    // color takes the new one, and the arrow for it (the new background repaints it).
     protected override void WndProc(ref Message m)
     {
         base.WndProc(ref m);
@@ -275,7 +278,7 @@ internal sealed class FloatingButton : Form
         base.OnPaint(e);
         e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
         var grow = scale * (float)look.Size / (float)ButtonSize.Small;
-        using var pen = new Pen(ArrowColor, ArrowLine * grow)
+        using var pen = new Pen(arrow, ArrowLine * grow)
         {
             StartCap = LineCap.Round,
             EndCap = LineCap.Round,
