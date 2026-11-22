@@ -50,12 +50,13 @@ Reasons, who decided and what was rejected: docs/decisions.md.
 - Steam's tray menu, which Steam misplaces on scaled monitors, is moved to the click by a Steam-only mover on a WinEvent hook; no mover for other programs' windows, except Windows' toast window.
 - Windows' notification popups (toasts and tray balloons) move to the mouse's secondary monitor: a mover only for the shell's toast window (hook on ShellExperienceHost; move, never resize); always on. Nothing to move while Windows shows none (a full-screen program on the main monitor).
 - Releases: a zip of the framework-dependent `dotnet publish` on a GitHub release, version in TrayAnywhere.csproj (docs/releasing.md); no installer, not self-contained, not signed.
+- License: MIT (LICENSE), copyright "the tray-anywhere authors", never a personal name or login.
 - Implicit usings off; a short hand-written .editorconfig.
 - Grid: a hotkey, Alt+` by default, set in the settings window (a box that records the keys, and Default); dark; app icons only, tooltip on hover; reads the tray before it shows; stays on top until its X, Escape or the hotkey; draggable within its monitor; a settings gear inside it at the right of its first line (not beside the X: Windows draws that title bar), which closes it and opens Settings. Floating button: one per monitor that has it on (each secondary monitor by default, the main one only if turned on); hidden while a full-screen window is in front on its monitor, checked every 0.5 s (no WinEvent hook). A settings window ("Settings..." in the right-click menu) holds Start with Windows, the hotkey, Reset icon order (greyed while no order is dragged) and, for the monitor picked in it (an outline like Windows' Display settings, at the top), that monitor's button: on or off, color (a row of squares), size, always on top.
 - Icon order: the grid's own, dragged within each section, kept in settings.json by the program's file name (else the icon's name); new icons at the end; Windows' order and sections are never changed.
 
 ## Project docs
-- README.md: for visitors: what it does, install, how to use, autostart, build from source, known limitations, credits.
+- README.md: for visitors: what it does, install, how to use, autostart, build from source, known limitations, credits, license.
 - docs/releasing.md: how to make a release zip and upload it.
 - docs/local.md: this PC's paths and copy-ready commands (gitignored).
 - docs/todo.md: the to-do list. docs/todo/: one file per to-do. docs/archive/: finished to-dos' files (read only when a to-do names one).

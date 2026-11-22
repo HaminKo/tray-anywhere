@@ -92,3 +92,6 @@ How the release zip is made: [docs/releasing.md](docs/releasing.md).
 ## Credits
 - [.NET](https://dotnet.microsoft.com) and WinForms by Microsoft, MIT license.
 - Windows UI Automation, part of Windows.
+
+## License
+MIT: see [LICENSE](LICENSE).

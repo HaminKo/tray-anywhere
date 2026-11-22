@@ -2,6 +2,15 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-21: MIT license, copyright "the tray-anywhere authors"; the release zip stays without it
+- What: LICENSE at the repo root holds the standard MIT text, "Copyright (c) 2026 the tray-anywhere authors"; the README names it in a "License" section after Credits. The release zip still holds only what `dotnet publish` makes, without LICENSE.
+- Reason: the shortest common license (about 20 lines, readable in a minute); anyone may use and change the code as long as the notice stays; the same license as .NET, the only thing in Credits, so nothing clashes. "The tray-anywhere authors" (the form big projects use, such as "The Go Authors") because the GitHub login stays out of tracked files ("Never in tracked files" in CLAUDE.md); the copyright doesn't depend on the line. The release page links to the repo, which holds LICENSE.
+- Decided by: the owner ("go with your suggestions"; Claude's suggestions), the "Before a public release" list.
+- Rejected:
+  - GPL-3.0: about 670 lines of legal text, and it keeps the code out of closed-source programs; a small free tray tool rarely needs that protection.
+  - The owner's real name or GitHub login in the copyright line: the login is kept out of tracked files; a real name would be public.
+  - LICENSE in the release zip: a change to TrayAnywhere.csproj and docs/releasing.md for little gain now; a small item of its own if wanted.
+
 ## 2026-11-21: A floating button hides while a full-screen window is in front on its monitor
 - What (To do 18): every 0.5 s the app looks for each button's monitor at the top windows from the front: hidden and cloaked windows, the desktop, windows with no area on that monitor, and always-on-top windows and tool windows that don't cover it (the taskbar is a tool window, and stays in front of a full-screen window that never had the focus, measured) are passed over; when the first window left covers the whole monitor (DWM's visible bounds), the button hides, else it shows. Whichever monitor has the focus. Always on; no setting. A maximized window doesn't count (it ends at the taskbar). The hotkey's grid still opens on that monitor, at its usual place; the button stays hidden meanwhile.
 - Reason: the button is always on top, so it showed over full-screen video and games; the always-on-top switch (To do 17) hides it under every window over its corner. Windows keeps its own taskbar under a full-screen program on that monitor also while another monitor has the focus (measured, docs/research/full-screen.md), and a video on an external monitor while working on the laptop screen is the case that matters. A pass over all windows takes 0.10 to 0.17 ms (measured).
