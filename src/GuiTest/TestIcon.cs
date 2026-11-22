@@ -22,7 +22,7 @@ internal sealed class TestIcon : IDisposable
         if (e.Button == MouseButtons.Right && !MenuPlace.IsEmpty)
         {
             Menu?.Dispose();
-            Menu = new SteamLikeMenu(MenuPlace);
+            Menu = TestWindow.SteamLikeMenu(MenuPlace);
         }
     };
 
@@ -30,12 +30,12 @@ internal sealed class TestIcon : IDisposable
     // while the test waits (Checks.WaitUntil lets its messages through).
     public List<MouseButtons> Clicks { get; } = [];
 
-    // Where a right click opens a window like Steam's tray menu (SteamLikeMenu); empty:
-    // none.
+    // Where a right click opens a window like Steam's tray menu
+    // (TestWindow.SteamLikeMenu); empty: none.
     public Rectangle MenuPlace { get; set; }
 
     // That window, from the last right click.
-    public SteamLikeMenu? Menu { get; private set; }
+    public TestWindow? Menu { get; private set; }
 
     // Closes the window like Steam's menu, if one is open.
     public void CloseMenu()

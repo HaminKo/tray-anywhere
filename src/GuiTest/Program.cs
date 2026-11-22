@@ -266,12 +266,30 @@ internal static class Program
     {
         using var app = new TestedApp(settingsPath);
         var buttons = CheckButtons(app, monitors, draggedPlace);
+        HidesUnderFullScreen(buttons, monitors);
         ResetIconOrder(app, buttons[0], settingsPath);
         buttons[0].RightClick();
         var exit = WaitFor("the button's right-click menu opens, with Exit", () => app.MenuItem("Exit tray-anywhere"));
         AppWindow.Invoke(exit);
         WaitUntil("Exit ends the app", () => app.HasExited);
         Check(app.ExitCode == 0, "with exit code 0", $"exit code {app.ExitCode}");
+    }
+
+    // A full-screen window in front on the first secondary monitor, without the focus
+    // (TestWindow.FullScreen): the button there hides, the others still show; once the
+    // window closes, the button shows again. The app looks every 0.5 s.
+    private static void HidesUnderFullScreen(List<AppWindow> buttons, List<Screen> monitors)
+    {
+        var monitor = monitors[0];
+        using (TestWindow.FullScreen(monitor))
+        {
+            WaitUntil($"a full-screen window in front on {Key(monitor)} hides the button there", () => !buttons[0].IsOpen);
+            for (var i = 1; i < buttons.Count; i++)
+            {
+                Check(buttons[i].IsOpen, $"the button on {Key(monitors[i])} still shows", "it hid too");
+            }
+        }
+        WaitUntil("closed, the button shows again", () => buttons[0].IsOpen);
     }
 
     // Start with Windows, clicked in the settings window three times, in the test's own

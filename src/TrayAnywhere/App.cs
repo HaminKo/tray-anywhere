@@ -9,7 +9,8 @@ using Tray;
 namespace TrayAnywhere;
 
 // The running app. It has no main window: it shows a floating button on each secondary
-// monitor (unless turned off there; on the main one only if turned on), opens or closes
+// monitor (unless turned off there; on the main one only if turned on; hidden while a
+// full-screen window is in front there), opens or closes
 // the grid when the hotkey is pressed or a button is clicked, reads the tray again while
 // the grid is open (every 2 s while it is used, every 10 s while not), and passes clicks
 // on the grid to the real tray icons. Each read shows in the
@@ -46,6 +47,10 @@ internal sealed class App : ApplicationContext
     private readonly SteamMenu steamMenu;
     // Moves Windows' notification popups to the monitor the mouse is on.
     private readonly ToastMover toastMover = new();
+    // Hides each button while a full-screen window is in front on its monitor. Checked as
+    // often as the grid's refresh: a button shows over a video that has just gone full
+    // screen for at most 0.5 s.
+    private readonly Timer fullScreenTimer = new() { Interval = 500 };
 
     // hotkey: made by Program, which says so first if another program has the keys. The
     // app disposes hotkey and steamMenu.
@@ -65,6 +70,8 @@ internal sealed class App : ApplicationContext
         _ = reader.ReadAsync(openIfMissing: true);
         MakeButtons();
         SystemEvents.DisplaySettingsChanged += OnMonitorsChanged;
+        fullScreenTimer.Tick += (_, _) => HideUnderFullScreen();
+        fullScreenTimer.Start();
     }
 
     // The hotkey as set, e.g. "Alt+`", for the buttons' tooltips.
@@ -171,11 +178,37 @@ internal sealed class App : ApplicationContext
             }
         };
         buttons.Add(button);
+        // Shown first, so that it takes its place (FloatingButton.OnLoad), where a grid
+        // opened with the hotkey goes next to it; then hidden at once if a full-screen
+        // window is in front there. A game that changes its monitor's resolution, say, has
+        // the buttons made again (OnMonitorsChanged).
         button.Show();
+        ShowUnlessFullScreen(button);
     }
 
     // The floating button on this monitor, or null if it has none.
     private FloatingButton? ButtonOf(Screen monitor) => buttons.Find(b => b.Monitor.DeviceName == monitor.DeviceName);
+
+    // Every 0.5 s: each button hides while a full-screen window (a video, a game) is in
+    // front on its monitor, and shows again once none is (owner's choice, To do 18). A
+    // hidden button keeps its place, so the hotkey's grid still opens next to it.
+    private void HideUnderFullScreen()
+    {
+        foreach (var button in buttons)
+        {
+            ShowUnlessFullScreen(button);
+        }
+    }
+
+    // Changed only when it differs, so a button that shows isn't shown again at each check.
+    private static void ShowUnlessFullScreen(FloatingButton button)
+    {
+        var show = !FullScreen.InFront(button.Monitor, button.Handle);
+        if (button.Visible != show)
+        {
+            button.Visible = show;
+        }
+    }
 
     // "Show the floating button" in the settings window.
     private void SetButtonOn(Screen monitor, bool on)
@@ -374,6 +407,7 @@ internal sealed class App : ApplicationContext
             }
             settingsWindow?.Dispose();
             refreshTimer.Dispose();
+            fullScreenTimer.Dispose();
             hotkey.Dispose();
             steamMenu.Dispose();
             toastMover.Dispose();
