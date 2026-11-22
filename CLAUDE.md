@@ -62,7 +62,7 @@ Reasons, who decided and what was rejected: docs/decisions.md.
 - docs/local.md: this PC's paths and copy-ready commands (gitignored).
 - docs/todo.md: the to-do list. docs/todo/: one file per to-do. docs/archive/: finished to-dos' files (read only when a to-do names one).
 - docs/decisions.md: decisions with reasons.
-- docs/research/: one file per topic; the taskbar's UI Automation tree is in uia-tray.md, WinForms and per-monitor scaling in winforms-dpi.md, Task Manager's Startup apps marker in startup-apps.md, release packaging in release.md, Windows' notification window in notifications.md, full-screen windows and the z-order in full-screen.md, the hotkey's key names and key capture in hotkey.md.
+- docs/research/: one file per topic; the taskbar's UI Automation tree is in uia-tray.md, WinForms and per-monitor scaling in winforms-dpi.md, Task Manager's Startup apps marker in startup-apps.md, release packaging in release.md, Windows' notification window in notifications.md, full-screen windows and the z-order in full-screen.md, the hotkey's key names and key capture in hotkey.md, the docs review before the first release in docs-review.md.
 
 ## Never in tracked files
 - Personal paths (the user folder, drive paths): they go in docs/local.md.

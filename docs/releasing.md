@@ -15,7 +15,7 @@ All commands run in PowerShell in the project folder.
    Compress-Archive -Path release\tray-anywhere\* -DestinationPath "release\tray-anywhere-$version.zip"
    ```
 
-4. Check the zip: unzip it into a temp folder and start it there with the GUI test's options (its own lock, settings file and registry key, so it leaves the everyday copy's alone). "Runs" means it started and stayed up for 5 s; the script then closes it:
+4. Check the zip: unzip it into a temp folder and start it there with the GUI test's options (its own lock, settings file and registry key, so it leaves the everyday copy's alone). "Runs" means it started and stayed up for 5 s; the script then closes it. Watch the screen meanwhile: a tray-anywhere message box means it failed, even if the script says "Runs" (a message box keeps the app running). Don't run the GUI test at the same time: they share a lock, so the check would only show "already running":
 
    ```powershell
    $check = "$env:TEMP\tray-anywhere-release-check"
