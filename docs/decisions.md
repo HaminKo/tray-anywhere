@@ -2,6 +2,16 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-21: The public repo starts with one clean commit, with GitHub's private noreply email
+- What: the tracked files and the history hold no personal path and no GitHub login (searched: docs/research/release.md, "Personal details in the repo"), but all 42 commits carry the owner's personal email as author email. Commits from now on use GitHub's noreply address (set by the owner in this repo's git config). As the last step before the first release, the current private repo stays private, renamed, as the archive with the full history, and a new public repo of the same name starts with one commit of the current files.
+- Reason: anyone can read a public commit's author email, and the owner keeps even the login out of the files; an email is more personal. The repo was still private, so nothing is out yet. The reasons behind the code are in docs/decisions.md and docs/archive/, not only in the history.
+- Decided by: the owner ("go with your suggestions"; Claude's suggestion).
+- Rejected:
+  - Keeping the email in the public history: simplest, but the address is public for good.
+  - The noreply address only for new commits: the 42 old ones would still show the personal one.
+  - Rewriting the old commits' email: the "Before a public release" list chose a clean repo over rewriting history.
+  - Hiding the login as author name and in the repo's URL: the owner's rule accepts it ("someone digging through history may"); only another account or an organization would hide it.
+
 ## 2026-11-21: MIT license, copyright "the tray-anywhere authors"; the release zip stays without it
 - What: LICENSE at the repo root holds the standard MIT text, "Copyright (c) 2026 the tray-anywhere authors"; the README names it in a "License" section after Credits. The release zip still holds only what `dotnet publish` makes, without LICENSE.
 - Reason: the shortest common license (about 20 lines, readable in a minute); anyone may use and change the code as long as the notice stays; the same license as .NET, the only thing in Credits, so nothing clashes. "The tray-anywhere authors" (the form big projects use, such as "The Go Authors") because the GitHub login stays out of tracked files ("Never in tracked files" in CLAUDE.md); the copyright doesn't depend on the line. The release page links to the repo, which holds LICENSE.

@@ -1,7 +1,7 @@
 ## Where we are
 - Now: Before a public release (no to-dos open)
 - Next: none
-- Updated: 2026-11-21
+- Updated: 2026-11-22
 
 ## To do
 Next number: 23. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
@@ -27,9 +27,10 @@ Every to-do is its own file, docs/todo/NN-name.md (two-digit number, short name)
 
 ## Before a public release
 - [x] Pick a license (LICENSE file; ask the user, with a suggestion). Done 2026-11-21: MIT (docs/decisions.md).
-- [ ] Search all tracked files for the "Never in tracked files" list in CLAUDE.md. If old commits hold any of it, publish a new repo with one clean commit instead of rewriting history.
+- [x] Search all tracked files for the "Never in tracked files" list in CLAUDE.md. If old commits hold any of it, publish a new repo with one clean commit instead of rewriting history. Done 2026-11-21: none, but the author email is personal; see the clean-repo item below (docs/decisions.md).
 - [ ] A fresh subagent that hasn't seen the project checks README.md and the docs it links against the code, and only reports; the user decides the fixes.
 - [ ] The README follows the "README" rule in ~/.claude/CLAUDE.md: short plain sentences, details in docs/, no section longer than about a screen.
 - [ ] A screenshot of the grid in the README.
 - [ ] Start CHANGELOG.md (Keep a Changelog: Unreleased first, then versions newest first) with the first version.
-- [ ] Publish the first GitHub release (0.1.0) by docs/releasing.md, after the license and the README screenshot.
+- [ ] Last before the release: keep the current repo private, renamed, as the archive with the full history; start a new public repo of the same name with one commit of the current files, its author email GitHub's noreply address (docs/decisions.md, 2026-11-21).
+- [ ] Publish the first GitHub release (0.1.0) by docs/releasing.md, after the license, the README screenshot and the clean repo.

@@ -21,3 +21,11 @@ What a release zip holds, and why it is framework-dependent. Measured 2026-11-18
 
 ## An install script beside the zip (not built)
 - Windows opens a downloaded .ps1 in Notepad on double-click; running it needs "Run with PowerShell" or an execution-policy change. It would only copy the folder and add a Start menu shortcut.
+
+## Personal details in the repo (searched 2026-11-21, before the first public release)
+All measured with git on 42 commits, every branch:
+- Current tracked files (`git grep -i` for the user folder's name and the GitHub login; a drive-path pattern such as `C:\`): none. Two hits are made-up examples: `C:\another copy\TrayAnywhere.exe` in src/GuiTest/Program.cs and a `c:\users\...` comment in src/TrayAnywhere/Autostart.cs.
+- History (`git log --all -p --format=''` for the changed lines, `-i -G` for the commits, `--name-only` for file names, the commit messages): none. docs/local.md was never tracked; no binary file was ever tracked.
+- Outside the "Never in tracked files" list: every commit's author name is the GitHub login, and its author email is the owner's personal address. The repo was private (`gh repo view`: PRIVATE).
+- From memory of GitHub's docs, not re-read: anyone can read a public commit's author email (adding `.patch` to the commit's URL shows it); GitHub gives each account a private address of the form `ID+login@users.noreply.github.com` for commits (GitHub Docs, "Setting your commit email address").
+- What was done about it: docs/decisions.md, 2026-11-21 ("The public repo starts with one clean commit").
