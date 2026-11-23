@@ -3,7 +3,7 @@ All notable changes to tray-anywhere. The format follows [Keep a Changelog](http
 
 ## Unreleased
 
-## 0.1.0 - (date of the release)
+## 0.1.0 - 2026-11-23
 The first release.
 
 ### Added
