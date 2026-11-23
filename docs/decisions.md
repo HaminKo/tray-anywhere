@@ -2,6 +2,12 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-22: The README's picture is the GUI test's grid screenshot on DISPLAY5, with the owner's real tray icons
+- What: docs/images/grid.png (397 x 452 px, 20 KB, no text chunks; measured) is `grid-DISPLAY5.png` from `dotnet run --project src/GuiTest -- screenshots DISPLAY5`: the grid with its floating button, grey around them, title bar inactive. It sits under the README's intro, before Status. To retake it: the same command with tray-anywhere closed, then copy the file over docs/images/grid.png.
+- Reason: the screenshot mode already copies only the two windows, so nothing else from the screen shows, and every run gives the same layout. DISPLAY5 is at 150 %, so the picture is sharp; with one monitor named, the button has its default look (Dark, Small). The README rule asks for a picture after "what it does".
+- Decided by: the owner ("go with your suggestions"; Claude's suggestions). The owner saw the icons it shows (common apps, nothing naming the owner) and agreed to show them.
+- Rejected: DISPLAY6 (100 %: smaller and softer on GitHub); a picture with only a few icons (closing the owner's apps for it; the real tray shows what the app is for); the settings window too (the item asks for the grid). Left: Windows Security's icon shows a yellow warning badge (not the antivirus, which reads as on and up to date; measured); a retake once the owner clears it.
+
 ## 2026-11-22: The README isn't trimmed; docs/guide.md starts with the details it leaves out
 - What: the README stays as it is, plus one line linking to docs/guide.md. The guide starts with the three details the docs review kept for it (docs/research/docs-review.md): the popup with the keyboard, settings kept by monitor name, a settings file that can't be read.
 - Reason: the README already fits the README rule's length (measured: 98 lines, about 156 when wrapped at 100 characters; the longest sections Build from source 46, How to use 33, Known limitations 31; Install from line 10), so the trim skill stops there.

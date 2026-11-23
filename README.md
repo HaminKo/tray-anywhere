@@ -4,6 +4,8 @@ Windows 11 shows tray icons (next to the clock, and the hidden ones behind the a
 
 It uses only what comes with Windows and .NET: no extra libraries.
 
+![The tray-anywhere popup, with its Pinned and Overflow icons, above its floating button](docs/images/grid.png)
+
 ## Status
 Early. The popup shows the icons and passes clicks on them to the real ones, and the app can start with Windows.
 

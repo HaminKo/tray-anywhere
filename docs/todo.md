@@ -30,7 +30,7 @@ Every to-do is its own file, docs/todo/NN-name.md (two-digit number, short name)
 - [x] Search all tracked files for the "Never in tracked files" list in CLAUDE.md. If old commits hold any of it, publish a new repo with one clean commit instead of rewriting history. Done 2026-11-21: none, but the author email is personal; see the clean-repo item below (docs/decisions.md).
 - [x] A fresh subagent that hasn't seen the project checks README.md and the docs it links against the code, and only reports; the user decides the fixes. Done 2026-11-22: docs/research/docs-review.md.
 - [x] The README follows the "README" rule in ~/.claude/CLAUDE.md: short plain sentences, details in docs/, no section longer than about a screen. Also add to docs/guide.md the details under "Kept for docs/guide.md" in docs/research/docs-review.md. Done 2026-11-22: it fits, not trimmed; docs/guide.md started (docs/decisions.md).
-- [ ] A screenshot of the grid in the README.
+- [x] A screenshot of the grid in the README. Done 2026-11-22: docs/images/grid.png (docs/decisions.md).
 - [ ] Start CHANGELOG.md (Keep a Changelog: Unreleased first, then versions newest first) with the first version.
 - [ ] Last before the release: keep the current repo private, renamed, as the archive with the full history; start a new public repo of the same name with one commit of the current files, its author email GitHub's noreply address (docs/decisions.md, 2026-11-21).
 - [ ] Publish the first GitHub release (0.1.0) by docs/releasing.md, after the license, the README screenshot and the clean repo.
