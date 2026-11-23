@@ -28,4 +28,4 @@ All measured with git on 42 commits, every branch:
 - History (`git log --all -p --format=''` for the changed lines, `-i -G` for the commits, `--name-only` for file names, the commit messages): none. docs/local.md was never tracked; no binary file was ever tracked.
 - Outside the "Never in tracked files" list: every commit's author name is the GitHub login, and its author email is the owner's personal address. The repo was private (`gh repo view`: PRIVATE).
 - From memory of GitHub's docs, not re-read: anyone can read a public commit's author email (adding `.patch` to the commit's URL shows it); GitHub gives each account a private address of the form `ID+login@users.noreply.github.com` for commits (GitHub Docs, "Setting your commit email address").
-- What was done about it: docs/decisions.md, 2026-11-21 ("The public repo starts with one clean commit").
+- What was done about it: docs/decisions.md, 2026-11-21 ("The public repo starts with one clean commit"), replaced 2026-11-23 ("The repo goes public as it is"): the email stays in the public history.

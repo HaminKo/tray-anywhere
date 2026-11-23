@@ -1,7 +1,7 @@
 ## Where we are
 - Now: Before a public release (no to-dos open)
 - Next: none
-- Updated: 2026-11-22
+- Updated: 2026-11-23
 
 ## To do
 Next number: 23. Numbers are permanent: never renumber or reuse one; to move a to-do, move its line.
@@ -32,5 +32,5 @@ Every to-do is its own file, docs/todo/NN-name.md (two-digit number, short name)
 - [x] The README follows the "README" rule in ~/.claude/CLAUDE.md: short plain sentences, details in docs/, no section longer than about a screen. Also add to docs/guide.md the details under "Kept for docs/guide.md" in docs/research/docs-review.md. Done 2026-11-22: it fits, not trimmed; docs/guide.md started (docs/decisions.md).
 - [x] A screenshot of the grid in the README. Done 2026-11-22: docs/images/grid.png (docs/decisions.md).
 - [x] Start CHANGELOG.md (Keep a Changelog: Unreleased first, then versions newest first) with the first version. Done 2026-11-22: 0.1.0's date is set at release (docs/releasing.md step 2).
-- [ ] Last before the release: keep the current repo private, renamed, as the archive with the full history; start a new public repo of the same name with one commit of the current files, its author email GitHub's noreply address (docs/decisions.md, 2026-11-21).
-- [ ] Publish the first GitHub release (0.1.0) by docs/releasing.md, after the license, the README screenshot and the clean repo.
+- [x] ~~Last before the release: keep the current repo private, renamed, as the archive with the full history; start a new public repo of the same name with one commit of the current files, its author email GitHub's noreply address (docs/decisions.md, 2026-11-21).~~ Dropped 2026-11-23: the repo goes public as it is, history and email included (docs/decisions.md).
+- [ ] Push, make the repo public on GitHub, then publish the first GitHub release (0.1.0) by docs/releasing.md.

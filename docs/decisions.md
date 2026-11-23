@@ -2,6 +2,15 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-23: The repo goes public as it is: its full history, the owner's own email included
+- What: no clean repo. This repo, with all its commits (47 up to ce37071, every one with the owner's personal email as author email; measured), is the one made public. New commits keep the same email; nothing in the git config changes. This replaces the 2026-11-21 decision below.
+- Reason: the owner doesn't mind their name and email on the project. It keeps one repo and its history, with no rename, second repo or branch switch. Known cost: once public, anyone can read the email (and bots collect addresses from GitHub, so some spam), and that can't be taken back.
+- Decided by: the owner ("I don't mind having my name attached to this project, no need for a new repo or anything"; then "go with your suggestions" on keeping the email, Claude's suggestion).
+- Rejected:
+  - The clean repo of 2026-11-21 (the old one renamed as a private archive, a new one with one commit): a second repo and a history cut, for an email the owner doesn't mind showing.
+  - Rewriting the 47 commits' email to the noreply address before going public: a history rewrite and a force-push for the same.
+  - The noreply address only for new commits: the old ones show the email anyway.
+
 ## 2026-11-22: The README's picture is the GUI test's grid screenshot on DISPLAY5, with the owner's real tray icons
 - What: docs/images/grid.png (397 x 452 px, 20 KB, no text chunks; measured) is `grid-DISPLAY5.png` from `dotnet run --project src/GuiTest -- screenshots DISPLAY5`: the grid with its floating button, grey around them, title bar inactive. It sits under the README's intro, before Status. To retake it: the same command with tray-anywhere closed, then copy the file over docs/images/grid.png.
 - Reason: the screenshot mode already copies only the two windows, so nothing else from the screen shows, and every run gives the same layout. DISPLAY5 is at 150 %, so the picture is sharp; with one monitor named, the button has its default look (Dark, Small). The README rule asks for a picture after "what it does".
@@ -17,6 +26,7 @@ Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what wa
   - A light pass moving the README's few edge cases (such as "Shift alone isn't enough") to the guide: the rule says no edge cases, but each moved sentence costs the reader who needs it a click, for little gain at this length.
 
 ## 2026-11-21: The public repo starts with one clean commit, with GitHub's private noreply email
+- Replaced 2026-11-23 ("The repo goes public as it is", above): no clean repo and no noreply address; the owner changed their mind before any step was done.
 - What: the tracked files and the history hold no personal path and no GitHub login (searched: docs/research/release.md, "Personal details in the repo"), but all 42 commits carry the owner's personal email as author email. Commits from now on use GitHub's noreply address (set by the owner in this repo's git config). As the last step before the first release, the current private repo stays private, renamed, as the archive with the full history, and a new public repo of the same name starts with one commit of the current files.
 - Reason: anyone can read a public commit's author email, and the owner keeps even the login out of the files; an email is more personal. The repo was still private, so nothing is out yet. The reasons behind the code are in docs/decisions.md and docs/archive/, not only in the history.
 - Decided by: the owner ("go with your suggestions"; Claude's suggestion).
