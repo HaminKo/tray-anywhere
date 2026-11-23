@@ -5,7 +5,7 @@ For the maintainer. A release is a zip of the framework-dependent app (the files
 All commands run in PowerShell in the project folder.
 
 1. Run the checks in CLAUDE.md "Build specifics" on the commit to release.
-2. Raise `<Version>` in src/TrayAnywhere/TrayAnywhere.csproj (0.1.0, 0.2.0, ...), commit and push.
+2. Raise `<Version>` in src/TrayAnywhere/TrayAnywhere.csproj (0.1.0, 0.2.0, ...). In CHANGELOG.md, put Unreleased's lines under a new heading `## X.Y.Z - YYYY-MM-DD` (for 0.1.0: fill in its date). Commit and push.
 3. Build the zip in `release\` (gitignored). It is published there, not to `publish\`, which is locked while the everyday copy runs from it:
 
    ```powershell

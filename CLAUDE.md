@@ -58,6 +58,7 @@ Reasons, who decided and what was rejected: docs/decisions.md.
 
 ## Project docs
 - README.md: for visitors: what it does, install, how to use, autostart, build from source, known limitations, credits, license.
+- CHANGELOG.md: user-visible changes per version (Keep a Changelog, plain headings, no version links); the date is set at release (docs/releasing.md).
 - docs/guide.md: for users: details the README leaves out, linked from it.
 - docs/releasing.md: how to make a release zip and upload it.
 - docs/local.md: this PC's paths and copy-ready commands (gitignored).
