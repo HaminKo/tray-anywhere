@@ -2,6 +2,15 @@
 
 Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what was rejected and why. Newest first.
 
+## 2026-11-23: The README's How to use becomes a short list; its paragraphs move to docs/guide.md
+- What: How to use's six paragraphs moved word for word (checked with a word diff) into docs/guide.md, each under its own heading (The popup, The floating buttons, The settings window, The hotkey, Where your settings are kept, Notifications), the longest split at sentence ends. The README keeps four bullets (the popup, the floating button, Settings and Exit, notifications), each a bold link to its guide section, and a line linking the guide. Known limitations' "settings.json" links to the guide's section on it. The rest of the README is unchanged.
+- Reason: the owner found How to use "way too long and hard to read" on GitHub: 36 lines wrapped at 100 characters, in six paragraphs of up to about 600 characters (measured). The 2026-11-22 check looked only at section length, which it passed. After: How to use 15 lines wrapped, the README 140 (from 160), the guide 42 lines (from 12); measured.
+- Decided by: the owner ("go with your suggestions"; Claude's suggestions).
+- Rejected:
+  - Shortening the paragraphs in place: facts would be dropped or made vaguer; the guide keeps them all.
+  - Also trimming Build from source and Known limitations: the owner named only How to use; Build from source sits after everything a user needs.
+  - From the trim skill's list: a root GUIDE.md, a `<details>` block per feature, only reordering sections.
+
 ## 2026-11-23: The repo goes public as it is: its full history, the owner's own email included
 - What: no clean repo. This repo, with all its commits (47 up to ce37071, every one with the owner's personal email as author email; measured), is the one made public. New commits keep the same email; nothing in the git config changes. This replaces the 2026-11-21 decision below.
 - Reason: the owner doesn't mind their name and email on the project. It keeps one repo and its history, with no rename, second repo or branch switch. Known cost: once public, anyone can read the email (and bots collect addresses from GitHub, so some spam), and that can't be taken back.
@@ -18,6 +27,7 @@ Each entry: `## YYYY-MM-DD: decision`, then the reason, who decided, and what wa
 - Rejected: DISPLAY6 (100 %: smaller and softer on GitHub); a picture with only a few icons (closing the owner's apps for it; the real tray shows what the app is for); the settings window too (the item asks for the grid). Left: Windows Security's icon shows a yellow warning badge (not the antivirus, which reads as on and up to date; measured); a retake once the owner clears it.
 
 ## 2026-11-22: The README isn't trimmed; docs/guide.md starts with the details it leaves out
+- Partly replaced 2026-11-23: How to use became a short list, its text moved to docs/guide.md (above).
 - What: the README stays as it is, plus one line linking to docs/guide.md. The guide starts with the three details the docs review kept for it (docs/research/docs-review.md): the popup with the keyboard, settings kept by monitor name, a settings file that can't be read.
 - Reason: the README already fits the README rule's length (measured: 98 lines, about 156 when wrapped at 100 characters; the longest sections Build from source 46, How to use 33, Known limitations 31; Install from line 10), so the trim skill stops there.
 - Decided by: the owner ("go with your suggestions"; Claude's suggestion).
