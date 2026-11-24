@@ -33,4 +33,4 @@ All commands run in PowerShell in the project folder.
    gh release view "v$version" --web
    ```
 
-6. Publish it: on its page, Edit, then Publish release. GitHub then makes the tag `v$version` on main's newest pushed commit at that moment, so push nothing new in between.
+6. Publish it: on its page, Edit, then Publish release (or `gh release edit "v$version" --draft=false`; used for 0.1.0). GitHub then makes the tag `v$version` on main's newest pushed commit at that moment, so push nothing new in between.

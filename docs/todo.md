@@ -1,5 +1,5 @@
 ## Where we are
-- Now: Before a public release (no to-dos open)
+- Now: none (0.1.0 released 2026-11-23; no to-dos open)
 - Next: none
 - Updated: 2026-11-23
 
@@ -33,4 +33,4 @@ Every to-do is its own file, docs/todo/NN-name.md (two-digit number, short name)
 - [x] A screenshot of the grid in the README. Done 2026-11-22: docs/images/grid.png (docs/decisions.md).
 - [x] Start CHANGELOG.md (Keep a Changelog: Unreleased first, then versions newest first) with the first version. Done 2026-11-22: 0.1.0's date is set at release (docs/releasing.md step 2).
 - [x] ~~Last before the release: keep the current repo private, renamed, as the archive with the full history; start a new public repo of the same name with one commit of the current files, its author email GitHub's noreply address (docs/decisions.md, 2026-11-21).~~ Dropped 2026-11-23: the repo goes public as it is, history and email included (docs/decisions.md).
-- [ ] Push, make the repo public on GitHub, then publish the first GitHub release (0.1.0) by docs/releasing.md.
+- [x] Push, make the repo public on GitHub, then publish the first GitHub release (0.1.0) by docs/releasing.md. Done 2026-11-23: the repo is public, with a description and topics (docs/research/release.md); v0.1.0 published, its tag on the commit "Shorten How to use".
